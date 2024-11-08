@@ -135,6 +135,17 @@ static MYSQL *_doConnect(Connection_T delegator, char **error) {
                         ERROR("invalid fetch-size");
                 Connection_setFetchSize(delegator, rows);
         }
+
+        if (URL_getParameter(url, "ssl-ca")) {
+                mysql_options(db, MYSQL_OPT_SSL_CA, URL_getParameter(url, "ssl-ca"));
+        }
+        if (URL_getParameter(url, "ssl-cert")) {
+                mysql_options(db, MYSQL_OPT_SSL_CERT, URL_getParameter(url, "ssl-cert"));
+        }
+        if (URL_getParameter(url, "ssl-key")) {
+                mysql_options(db, MYSQL_OPT_SSL_KEY, URL_getParameter(url, "ssl-key"));
+        }
+
         // Connect
         if (mysql_real_connect(db, host, user, password, database, port, unix_socket, clientFlags))
                 return db;
