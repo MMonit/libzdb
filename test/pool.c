@@ -378,7 +378,6 @@ static void testPool(const char *testURL) {
 
         printf("=> Test8: Exceptions handling\n");
         {
-                int i;
                 Connection_T con;
                 ResultSet_T result;
                 url = URL_new(testURL);
@@ -405,7 +404,7 @@ static void testPool(const char *testURL) {
                 TRY
                 {
                         Connection_beginTransaction(con);
-                        for (i = 0; data[i]; i++) 
+                        for (int i = 0; data[i]; i++)
                                 Connection_execute(con, "insert into zild_t (name, percent) values('%s', %d.%d);", data[i], i+1, i);
                         Connection_commit(con);
                         printf("\tResult: table zild_t successfully created\n");
@@ -423,7 +422,6 @@ static void testPool(const char *testURL) {
                 assert((con = ConnectionPool_getConnection(pool)));
                 TRY
                 {
-                        int i, j;
                         const char *bg[]= {"Starbuck", "Sharon Valerii",
                                 "Number Six", "Gaius Baltar", "William Adama",
                                 "Lee \"Apollo\" Adama", "Laura Roslin", 0};
@@ -436,6 +434,7 @@ static void testPool(const char *testURL) {
                            will throw an SQLException and transfer the control
                            to the exception handler
                         */
+                        int i, j;
                         for (i = 0, j = 42; bg[i]; i++, j++) {
                                 PreparedStatement_setString(p, 1, bg[i]);
                                 PreparedStatement_execute(p);

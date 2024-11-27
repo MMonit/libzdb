@@ -138,5 +138,4 @@ bool Time_usleep(long long microseconds);
 //@}
 
 
-#undef T
 #endif

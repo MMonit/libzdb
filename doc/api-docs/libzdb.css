@@ -1,5 +1,5 @@
 body {background-color:white;}
-body,div,p,dl, .memname, .memberdecls, .paramname, .params, .paramname, .tparams, .exception {
+body,div,p,dl, .memname, .memberdecls, .params, .paramname, .tparams, .exception {
         font: normal normal normal 17px/23px "HelveticaNeue", Helvetica, "Arial Narrow", Arial, sans-serif;
 }
 h1, h2, h3, h4 {color: rgba(1,1,1,.8);}

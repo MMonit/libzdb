@@ -613,11 +613,10 @@ static void testVector(void) {
         
         printf("=> Test1: push & get\n");
         {
-                int i;
                 char b[] = "abcdefghijklmnopqrstuvwxyz";
                 vector = Vector_new(1);
                 assert(vector);
-                for (i = 0; i < 10; i++)
+                for (int i = 0; i < 10; i++)
                         Vector_push(vector, &b[i]);
                 assert(Vector_size(vector) == 10);
                 assert(*(char*)Vector_get(vector, 7) =='h');
@@ -701,11 +700,11 @@ static void testVector(void) {
    
         printf("=> Test5: map\n");
         {
-                int i,j;
+                int j;
                 char b[] = "abcdefghijklmnopqrstuvwxyz";
                 vector = Vector_new(1);
                 assert(vector);
-                for (i = 0; i < 10; i++)
+                for (int i = 0; i < 10; i++)
                         Vector_push(vector, &b[i]);
                 assert(Vector_size(vector) == 10);
                 j = 10;
@@ -741,11 +740,10 @@ static void testVector(void) {
         
         printf("=> Test7: pop & isEmpty\n");
         {
-                int i;
                 char b[] = "abcdefghijklmnopqrstuvwxyz";
                 vector = Vector_new(100);
                 assert(vector);
-                for (i = 0; i<26; i++)
+                for (int i = 0; i<26; i++)
                         Vector_push(vector, &b[i]);
                 assert(Vector_size(vector) == 26);
                 printf("\tResult: ");
@@ -852,10 +850,9 @@ static void testStringBuffer(void) {
 
         printf("=> Test5: internal resize\n");
         {
-                int i;
                 sb = StringBuffer_new("");
                 assert(sb);
-                for (i = 0; i<1024; i++)
+                for (int i = 0; i<1024; i++)
                         StringBuffer_append(sb, "a");
                 assert(StringBuffer_length(sb) == 1024);
                 assert(StringBuffer_toString(sb)[1023] == 'a');

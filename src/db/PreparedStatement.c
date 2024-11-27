@@ -85,7 +85,7 @@ void PreparedStatement_free(T *P) {
 
 
 void PreparedStatement_setString(T P, int parameterIndex, const char *x) {
-        int size = (x) ? (int)strlen(x) : 0;
+        int size = x ? (int)strlen(x) : 0;
         PreparedStatement_setSString(P, parameterIndex, x, size);
 }
 
