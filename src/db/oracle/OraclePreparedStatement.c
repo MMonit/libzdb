@@ -140,7 +140,7 @@ static void _setString(T P, int parameterIndex, const char *x, int size) {
         assert(P);
         int i = checkAndSetParameterIndex(parameterIndex, P->parameterCount);
         P->params[i].type.string = x;
-        if (size > 0) {
+        if (x) {
                 P->params[i].length = size;
                 P->params[i].is_null = OCI_IND_NOTNULL;
         } else {
