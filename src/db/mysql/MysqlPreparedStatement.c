@@ -111,7 +111,7 @@ static void _setString(T P, int parameterIndex, const char *x, int size) {
         int i = checkAndSetParameterIndex(parameterIndex, P->parameterCount);
         P->bind[i].buffer_type = MYSQL_TYPE_STRING;
         P->bind[i].buffer = (char*)x;
-        if (size > 0) {
+        if (x) {
                 P->params[i].length = size;
                 P->bind[i].is_null = 0;
         } else {
