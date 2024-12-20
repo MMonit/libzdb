@@ -216,7 +216,9 @@ enum { Exception_entered=0, Exception_thrown, Exception_handled, Exception_final
 extern pthread_key_t Exception_stack;
 void Exception_init(void);
 void Exception_reset(void);
-void Exception_throw(const T *e, const char *func, const char *file, int line, const char *cause, ...) CLANG_ANALYZER_NORETURN;
+void Exception_vthrow(const T *e, const char *func, const char *file, int line, const char *cause, ...) CLANG_ANALYZER_NORETURN;
+void Exception_throw(const T *e, const char *func, const char *file, int line, const char *message) CLANG_ANALYZER_NORETURN;
+
 #define pop_Exception_stack pthread_setspecific(Exception_stack, ((Exception_Frame*)pthread_getspecific(Exception_stack))->prev)
 /** @endcond */
 
@@ -229,7 +231,7 @@ void Exception_throw(const T *e, const char *func, const char *file, int line, c
  * @hideinitializer
  */
 #define THROW(e, cause, ...) \
-Exception_throw(&(e), __func__, __FILE__, __LINE__, cause, ##__VA_ARGS__, NULL)
+        Exception_vthrow(&(e), __func__, __FILE__, __LINE__, cause, ##__VA_ARGS__, NULL)
 
 
 /**
@@ -238,7 +240,7 @@ Exception_throw(&(e), __func__, __FILE__, __LINE__, cause, ##__VA_ARGS__, NULL)
  * @hideinitializer
  */
 #define RETHROW Exception_throw(Exception_frame.exception, \
-        Exception_frame.func, Exception_frame.file, Exception_frame.line, NULL)
+        Exception_frame.func, Exception_frame.file, Exception_frame.line, Exception_frame.message)
 
 
 /**

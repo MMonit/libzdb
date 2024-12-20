@@ -93,30 +93,37 @@ void Exception_reset(void) {
 
 #ifndef ZILD_PACKAGE_PROTECTED
 
-void Exception_throw(const T *e, const char *func, const char *file, int line, const char *cause, ...) {
-        va_list ap;
-	Exception_Frame *p = ThreadData_get(Exception_stack);
-	assert(e);
-	if (p) {
+void Exception_throw(const T *e, const char *func, const char *file, int line, const char *message) {
+        Exception_Frame *p = ThreadData_get(Exception_stack);
+        assert(e);
+        if (p) {
                 p->exception = e;
                 p->func = func;
                 p->file = file;
                 p->line = line;
-                if (cause) {
-                        va_start(ap, cause);
-                        vsnprintf(p->message, EXCEPTION_MESSAGE_LENGTH, cause, ap);
-                        va_end(ap);
-                }
-                pop_Exception_stack;	
+                if (message)
+                        Str_copy(p->message, message, EXCEPTION_MESSAGE_LENGTH);
+                pop_Exception_stack;
                 longjmp(p->env, Exception_thrown);
-	} else if (cause) {
-                char message[EXCEPTION_MESSAGE_LENGTH + 1];
+        } else if (message) {
+                ABORT("%s: %s\n raised in %s at %s:%d\n", e->name, message,
+                      func ? func : "?", file ? file : "?", line);
+        } else {
+                ABORT("%s: 0x%p\n raised in %s at %s:%d\n", e->name, e,
+                      func ? func : "?", file ? file : "?", line);
+        }
+}
+
+void Exception_vthrow(const T *e, const char *func, const char *file, int line, const char *cause, ...) {
+        char message[EXCEPTION_MESSAGE_LENGTH + 1];
+        if (cause) {
+                va_list ap;
                 va_start(ap, cause);
                 vsnprintf(message, EXCEPTION_MESSAGE_LENGTH, cause, ap);
                 va_end(ap);
-                ABORT("%s: %s\n raised in %s at %s:%d\n", e->name, message, func ? func : "?", file ? file : "?", line);
+                Exception_throw(e, func, file, line, message);
         } else {
-                ABORT("%s: 0x%p\n raised in %s at %s:%d\n", e->name, e, func ? func : "?", file ? file : "?", line);
+                Exception_throw(e, func, file, line, NULL);
         }
 }
 
