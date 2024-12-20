@@ -326,7 +326,7 @@ int main(void) {
         }
         printf("=> Test12: OK\n\n");
         
-        printf("=> Test14: 2nd level FINALLY rethrows exception from nested 1st level TRY with '%%' character in vararg string argument\n");
+        printf("=> Test14: Double interpretation of format strings during RETHROW\n");
         {
                 TRY
                 {
