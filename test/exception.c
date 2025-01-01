@@ -22,30 +22,30 @@ Exception_T B = {"BException"};
 Exception_T C = {"CException"};
 Exception_T D = {"DException"};
 
-void throwA(void) {
+static void throwA(void) {
         THROW(A, "A");
 }
 
-void throwB(void) {
+static void throwB(void) {
         THROW(B, "B");
 }
 
-void throwC(void) {
+static void throwC(void) {
         THROW(C, "C");
 }
 
-void throwD(void) {
+static void throwD(void) {
         THROW(D, "D");
 }
 
-void indirectA(void) {
+static void indirectA(void) {
         throwA();
 }
 
 /* Throw and catch exceptions and check that we get the expected exception. 
  * If the exception stack is corrupt this should be detected
  */
-void *thread(void *args) {
+static void *thread(void *args) {
         TRY
                 THROW(A, "A");
                 assert(false); // Should not be reached
