@@ -124,7 +124,7 @@ static MYSQL *_doConnect(Connection_T delegator, char **error) {
         const char *charset = URL_getParameter(url, "charset");
         if (charset)
                 mysql_options(db, MYSQL_SET_CHARSET_NAME, charset);
-#if MYSQL_VERSION_ID >= 50013
+#if MYSQL_VERSION_ID < 80034
         mysql_options(db, MYSQL_OPT_RECONNECT, &yes);
 #endif
         // Set Connection ResultSet fetch size if found in URL
