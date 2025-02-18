@@ -261,7 +261,7 @@ void Exception_throw(const T *e, const char *func, const char *file, int line, c
         Exception_frame.message[0] = 0; \
         Exception_frame.prev = (Exception_Frame*)pthread_getspecific(Exception_stack); \
         pthread_setspecific(Exception_stack, &Exception_frame); \
-        Exception_flag = setjmp(Exception_frame.env); \
+        Exception_flag = sigsetjmp(Exception_frame.env, 0); \
         if (Exception_flag == Exception_entered) {
                 
 

@@ -104,7 +104,7 @@ void Exception_throw(const T *e, const char *func, const char *file, int line, c
                 if (message)
                         Str_copy(p->message, message, EXCEPTION_MESSAGE_LENGTH);
                 pop_Exception_stack;
-                longjmp(p->env, Exception_thrown);
+                siglongjmp(p->env, Exception_thrown);
         } else if (message) {
                 ABORT("%s: %s\n raised in %s at %s:%d\n", e->name, message,
                       func ? func : "?", file ? file : "?", line);

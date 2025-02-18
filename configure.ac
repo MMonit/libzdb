@@ -303,14 +303,14 @@ AC_SUBST(UNIT_TEST)
 # Functions
 # ------------------------------------------------------------------------
 
-# Require a working setjmp
-AC_CACHE_CHECK([setjmp is available],
+# Require a working sigsetjmp
+AC_CACHE_CHECK([sigsetjmp is available],
                [libzdb_cv_setjmp_available],
                [AC_RUN_IFELSE([AC_LANG_PROGRAM(
                        [[#include <setjmp.h>]],
-                       [[jmp_buf env; setjmp(env);]])],
+                       [[jmp_buf env; sigsetjmp(env, 0);]])],
                        [AC_MSG_RESULT(yes)],
-                       [AC_MSG_FAILURE([setjmp is required])],
+                       [AC_MSG_FAILURE([sigsetjmp is required])],
                        [AC_MSG_ERROR(cross-compiling: please set 'libzdb_cv_setjmp_available=[yes|no]')])])
 
 # Require that we have vsnprintf that conforms to c11. I.e. does bounds check
