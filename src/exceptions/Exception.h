@@ -205,7 +205,7 @@ typedef struct T {
 typedef struct Exception_Frame Exception_Frame;
 struct Exception_Frame {
 	int line;
-	jmp_buf env;
+    sigjmp_buf env;
         const char *func;
 	const char *file;
 	const T *exception;
