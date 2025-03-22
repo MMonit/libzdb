@@ -13,6 +13,8 @@ Version 3.4.1
   connection writing to the database, using shared cache together
   with the unlock notify API can significantly reduce problems with
   database lock errors.
+* New: Add options to the connection URL to specify SSL certificate,
+  CA certificate, and certificate key for MySQL and Postgres.
 * Fix: Removed 'heap_limit' as a special URL parameter for SQLite.
   SQLite introduced the pragma 'soft_heap_limit' in addition
   to 'hard_heap_limit' in version 3.7.3. See

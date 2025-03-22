@@ -100,8 +100,18 @@ static bool _doConnect(T C, char **error) {
                 StringBuffer_append(C->sb, "dbname='%s' ", URL_getPath(url) + 1);
         else
                 ERROR("no database specified in URL");
-        /* Options */
+        /* SSL Options */
         StringBuffer_append(C->sb, "sslmode='%s' ", IS(URL_getParameter(url, "use-ssl"), "true") ? "require" : "disable");
+        if (URL_getParameter(url, "ssl-ca")) {
+                StringBuffer_append(C->sb, "sslrootcert='%s' ", URL_getParameter(url, "ssl-ca"));
+        }
+        if (URL_getParameter(url, "ssl-cert")) {
+                StringBuffer_append(C->sb, "sslcert='%s' ", URL_getParameter(url, "ssl-cert"));
+        }
+        if (URL_getParameter(url, "ssl-key")) {
+                StringBuffer_append(C->sb, "sslkey='%s' ", URL_getParameter(url, "ssl-key"));
+        }
+        /* Other Options */
         if (URL_getParameter(url, "connect-timeout")) {
                 TRY
                         StringBuffer_append(C->sb, "connect_timeout=%d ", Str_parseInt(URL_getParameter(url, "connect-timeout")));
