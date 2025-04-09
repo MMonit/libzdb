@@ -70,7 +70,7 @@ struct ConnectionPool_S {
         volatile bool stopped;
         int connectionTimeout;
         int initialConnections;
-        ConnectionPool_Type type;
+        CONNECTIONPOOL_TYPE type;
 };
 
 int ZBDEBUG = false;
@@ -86,18 +86,18 @@ void(*AbortHandler)(const char *error) = NULL;
 /* ------------------------------------------------------- Private methods */
 
 
-static ConnectionPool_Type _getType(T P) {
+static CONNECTIONPOOL_TYPE _getType(T P) {
         const char *databaseType = URL_getProtocol(P->url);
         if (IS(databaseType, "mysql")) {
-                return ConnectionPool_Mysql;
+                return CONNECTIONPOOL_MYSQL;
         } else if (IS(databaseType, "postgresql")) {
-                return ConnectionPool_Postgresql;
+                return CONNECTIONPOOL_POSTGRESQL;
         } else if (IS(databaseType, "sqlite")) {
-                return ConnectionPool_Sqlite;
+                return CONNECTIONPOOL_SQLITE;
         } else if (IS(databaseType, "oracle")) {
-                return ConnectionPool_Oracle;
+                return CONNECTIONPOOL_ORACLE;
         } else {
-                return ConnectionPool_None;
+                return CONNECTIONPOOL_NONE;
         }
 }
 
@@ -301,7 +301,7 @@ void ConnectionPool_free(T *P) {
 /* ------------------------------------------------------------ Properties */
 
 
-ConnectionPool_Type ConnectionPool_getType(T P) {
+CONNECTIONPOOL_TYPE ConnectionPool_getType(T P) {
         assert(P);
         return P->type;
 }

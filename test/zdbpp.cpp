@@ -215,7 +215,7 @@ int main() {
         
         ConnectionPool pool(std::move(*url_opt));
         pool.setReaper(0); // Disable reaper
-        assert(pool.getType() > ConnectionPool_None);
+        assert(pool.getType() > CONNECTIONPOOL_NONE);
         pool.start();
         std::cout << std::string(8, '=') + "> Start Tests\n";
         testCreateSchema(pool);

@@ -258,12 +258,12 @@ typedef struct ConnectionPool_S *T;
  * with the ConnectionPool in the libzdb library.
  */
 typedef enum {
-        ConnectionPool_None = 0,   /**< No database type set (default/uninitialized state) */
-        ConnectionPool_Sqlite,     /**< SQLite database connection */
-        ConnectionPool_Mysql,      /**< MySQL database connection */
-        ConnectionPool_Postgresql, /**< PostgreSQL database connection */
-        ConnectionPool_Oracle      /**< Oracle database connection */
-} ConnectionPool_Type;
+        CONNECTIONPOOL_NONE = 0,   /**< No database type set (default/uninitialized state) */
+        CONNECTIONPOOL_SQLITE,     /**< SQLite database connection */
+        CONNECTIONPOOL_MYSQL,      /**< MySQL database connection */
+        CONNECTIONPOOL_POSTGRESQL, /**< PostgreSQL database connection */
+        CONNECTIONPOOL_ORACLE      /**< Oracle database connection */
+} CONNECTIONPOOL_TYPE;
 
 /**
  * Library Debug flag. If set to true, emit debug output
@@ -300,10 +300,10 @@ void ConnectionPool_free(T *P);
  * @brief Retrieves the database type for this ConnectionPool
  *
  * @param P A ConnectionPool object
- * @return The ConnectionPool_Type representing the database backend for this ConnectionPool
- * @see ConnectionPool_Type
+ * @return The CONNECTIONPOOL_TYPE representing the database backend for this ConnectionPool
+ * @see CONNECTIONPOOL_TYPE
  */
-ConnectionPool_Type ConnectionPool_getType(T P);
+CONNECTIONPOOL_TYPE ConnectionPool_getType(T P);
 
 
 /**

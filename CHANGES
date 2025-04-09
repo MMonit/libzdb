@@ -5,7 +5,7 @@
 Version 3.4.1
 -------------
 
-* New: Enum ConnectionPool_Type and ConnectionPool_getType() which
+* New: Enum CONNECTIONPOOL_TYPE and ConnectionPool_getType() which
   returns the database type the ConnectionPool is connected to.
 * New: Reintroduce support for shared cache in SQLite, but make it
   configurable. Using shared cache is beneficial (despite it being

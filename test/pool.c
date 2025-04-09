@@ -127,7 +127,7 @@ static void testPool(const char *testURL) {
                 url = URL_new(testURL);
                 pool = ConnectionPool_new(url);
                 assert(pool);
-                assert(ConnectionPool_getType(pool) > ConnectionPool_None);
+                assert(ConnectionPool_getType(pool) > CONNECTIONPOOL_NONE);
                 ConnectionPool_setReaper(pool, 0); // disable reaper
                 ConnectionPool_setAbortHandler(pool, TabortHandler);
                 ConnectionPool_start(pool);
