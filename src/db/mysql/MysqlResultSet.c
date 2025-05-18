@@ -162,6 +162,7 @@ static const char *_getColumnName(T R, int columnIndex) {
 
 
 static long _getColumnSize(T R, int columnIndex) {
+        assert(R);
         int i = checkAndSetColumnIndex(columnIndex, R->columnCount);
         if (R->columns[i].is_null)
                 return 0;
