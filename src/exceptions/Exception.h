@@ -231,7 +231,7 @@ void Exception_throw(const T *e, const char *func, const char *file, int line, c
  * @hideinitializer
  */
 #define THROW(e, cause, ...) \
-        Exception_vthrow(&(e), __func__, __FILE__, __LINE__, cause, ##__VA_ARGS__, NULL)
+        Exception_vthrow(&(e), __func__, __FILE__, __LINE__, cause, ##__VA_ARGS__)
 
 
 /**
