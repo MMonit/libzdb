@@ -143,19 +143,19 @@
 /**
  * Milliseconds per second
  */
-#define MSEC_PER_SEC 1000
+#define MSEC_PER_SEC 1000LL
 
 
 /**
  * Microseconds per second 
 */
-#define USEC_PER_SEC 1000000
+#define USEC_PER_SEC 1000000LL
 
 
 /** 
  * Microseconds per millisecond 
  */
-#define USEC_PER_MSEC 1000
+#define USEC_PER_MSEC 1000LL
 
 
 /* ------------------------------------- General Purpose functional macros */
