@@ -2,7 +2,7 @@
 
 AC_PREREQ([2.53])
 
-AC_INIT([libzdb], [3.4.0], [bugs-libzdb@tildeslash.com])
+AC_INIT([libzdb], [3.4.1], [bugs-libzdb@tildeslash.com])
 AC_SUBST([VERSION_MAJOR], [`echo $PACKAGE_VERSION | cut -d. -f1`])
 AC_SUBST([VERSION_MINOR], [`echo $PACKAGE_VERSION | cut -d. -f2`])
 AC_SUBST([VERSION_REVISION], [`echo $PACKAGE_VERSION | cut -d. -f3`])
