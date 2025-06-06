@@ -250,7 +250,7 @@ bool ResultSet_next(T R);
 /**
  * @brief Checks if the designated column's value is SQL NULL.
  *
- * If the column value is SQL NULL, a ResultSet returns the NULL for
+ * If the column value is SQL NULL, a ResultSet returns NULL for
  * reference types and 0 for value types. Use this method if you need to
  * differentiate between SQL NULL and the value NULL/0.
  *
@@ -262,6 +262,23 @@ bool ResultSet_next(T R);
  * @see SQLException.h
  */
 bool ResultSet_isnull(T R, int columnIndex);
+
+
+/**
+ * @brief Checks if the designated column's value is SQL NULL.
+ *
+ * If the column value is SQL NULL, a ResultSet returns NULL for
+ * reference types and 0 for value types. Use this method if you need to
+ * differentiate between SQL NULL and the value NULL/0.
+ *
+ * @param R A ResultSet object
+ * @param columnName The SQL name of the column. *case-sensitive*
+ * @return true if column value is SQL NULL, false otherwise
+ * @exception SQLException If a database access error occurs or
+ * columnIndex is outside the valid range
+ * @see SQLException.h
+ */
+bool ResultSet_isnullByName(T R, const char *columnName);
 
 
 /**

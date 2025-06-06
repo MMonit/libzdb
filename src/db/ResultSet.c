@@ -126,13 +126,19 @@ bool ResultSet_next(T R) {
 }
 
 
+/* --------------------------------------------------------------- Columns */
+
+
 bool ResultSet_isnull(T R, int columnIndex) {
         assert(R);
         return R->op->isnull(R->D, columnIndex);
 }
 
 
-/* --------------------------------------------------------------- Columns */
+bool ResultSet_isnullByName(T R, const char *columnName) {
+        assert(R);
+        return ResultSet_isnull(R, _getIndex(R, columnName));
+}
 
 
 const char *ResultSet_getString(T R, int columnIndex) {

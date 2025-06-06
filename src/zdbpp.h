@@ -693,6 +693,20 @@ namespace zdb {
         }
         
         /**
+         * @brief Checks if the designated column's value is SQL NULL.
+         *
+         * A ResultSet returns an optional for reference types and 0 for value types.
+         * Use this method if you need to differentiate between SQL NULL and std::nullopt/0.
+         *
+         * @param columnName The SQL name of the column. case-sensitive.
+         * @return true if column value is SQL NULL, false otherwise.
+         * @throws sql_exception If a database access error occurs or columnIndex is invalid.
+         */
+        [[nodiscard]] bool isNull(const std::string& columnName) {
+            except_wrapper(RETURN ResultSet_isnullByName(t_, columnName.c_str()));
+        }
+        
+        /**
          * @brief Gets the designated column's value as a string.
          *
          * _The returned string may only be valid until the next call to next()

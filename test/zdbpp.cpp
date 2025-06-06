@@ -130,7 +130,10 @@ static void testQuery(ConnectionPool& pool) {
         
         // Assert that SQL null above was set
         if (id == 11) {
+            // Test using column index
             assert(result.isNull(4));
+            // Test using named column
+            assert(result.isNull("image"));
         }
     }
 }

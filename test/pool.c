@@ -253,10 +253,13 @@ static void testPool(const char *testURL) {
                 rset = Connection_executeQuery(con, "select id, image from zild_t where id in(1,5,2);");
                 while (ResultSet_next(rset)) {
                         int id = ResultSet_getIntByName(rset, "id");
-                        if (id == 1 || id == 5)
+                        if (id == 1 || id == 5) {
                                 assert(ResultSet_isnull(rset, 2) == true);
-                        else
+                                assert(ResultSet_isnullByName(rset, "image") == true);
+                        } else {
                                 assert(ResultSet_isnull(rset, 2) == false);
+                                assert(ResultSet_isnullByName(rset, "image") == false);
+                        }
                 }
                 printf("success\n");
 
