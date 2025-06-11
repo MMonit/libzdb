@@ -700,7 +700,7 @@ namespace zdb {
          *
          * @param columnName The SQL name of the column. case-sensitive.
          * @return true if column value is SQL NULL, false otherwise.
-         * @throws sql_exception If a database access error occurs or columnIndex is invalid.
+         * @throws sql_exception If a database access error occurs or columnName does not exist.
          */
         [[nodiscard]] bool isNull(const std::string& columnName) {
             except_wrapper(RETURN ResultSet_isnullByName(t_, columnName.c_str()));
