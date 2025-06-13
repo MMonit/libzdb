@@ -275,7 +275,7 @@ bool ResultSet_isnull(T R, int columnIndex);
  * @param columnName The SQL name of the column. *case-sensitive*
  * @return true if column value is SQL NULL, false otherwise
  * @exception SQLException If a database access error occurs or
- * columnIndex is outside the valid range
+ * columnName does not exist
  * @see SQLException.h
  */
 bool ResultSet_isnullByName(T R, const char *columnName);
