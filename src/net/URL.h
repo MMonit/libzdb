@@ -64,7 +64,7 @@
  * // Retrieve and print various components of the URL
  * printf("Protocol: %s\n", URL_getProtocol(url));
  * printf("Host:     %s\n", valueOr(URL_getHost(url), "Not specified"));
- * printf("Port:     %d\n", valueOr(URL_getPort(url), -1));
+ * printf("Port:     %d\n", URL_getPort(url));
  * printf("User:     %s\n", valueOr(URL_getUser(url), "Not specified"));
  * printf("Password. %s\n", valueOr(URL_getPassword(url), "Not specified"));
  * printf("Path:     %s\n", valueOr(URL_getPath(url), "Not specified"));
