@@ -931,16 +931,12 @@ static void testStringBuffer(void) {
                 assert(Str_isEqual(StringBuffer_toString(sb), "select a from b"));
                 StringBuffer_free(&sb);
                 assert(sb == NULL);
-                // Remove last semicolon
-                sb = StringBuffer_new("select * from host;");
+                // Keep last semicolon
+                sb = StringBuffer_new("select * from host; ");
                 StringBuffer_trim(sb);
-                assert(Str_isEqual(StringBuffer_toString(sb), "select * from host"));
+                assert(Str_isEqual(StringBuffer_toString(sb), "select * from host;"));
                 StringBuffer_free(&sb);
-                sb = StringBuffer_new(";");
-                StringBuffer_trim(sb);
-                assert(Str_isEqual(StringBuffer_toString(sb), ""));
-                StringBuffer_free(&sb);
-                // Test don't remove last semicolon if part of 'end;'
+                // Keep last semicolon
                 sb = StringBuffer_new("DECLARE blabla END; \n");
                 StringBuffer_trim(sb);
                 assert(Str_isEqual(StringBuffer_toString(sb), "DECLARE blabla END;"));
@@ -951,7 +947,7 @@ static void testStringBuffer(void) {
                 StringBuffer_free(&sb);
                 sb = StringBuffer_new("select * from x order by id; \t\n");
                 StringBuffer_trim(sb);
-                assert(Str_isEqual(StringBuffer_toString(sb), "select * from x order by id"));
+                assert(Str_isEqual(StringBuffer_toString(sb), "select * from x order by id;"));
                 StringBuffer_free(&sb);
                 sb = StringBuffer_new("end;");
                 StringBuffer_trim(sb);
@@ -959,17 +955,17 @@ static void testStringBuffer(void) {
                 StringBuffer_free(&sb);
                 sb = StringBuffer_new("and; \t\n");
                 StringBuffer_trim(sb);
-                assert(Str_isEqual(StringBuffer_toString(sb), "and"));
+                assert(Str_isEqual(StringBuffer_toString(sb), "and;"));
                 StringBuffer_free(&sb);
                 sb = StringBuffer_new("nd;");
                 StringBuffer_trim(sb);
-                assert(Str_isEqual(StringBuffer_toString(sb), "nd"));
+                assert(Str_isEqual(StringBuffer_toString(sb), "nd;"));
                 StringBuffer_free(&sb);
                 assert(sb == NULL);
                 // Remove white space
                 sb = StringBuffer_new("\t select a from b; \r\n");
                 StringBuffer_trim(sb);
-                assert(Str_isEqual(StringBuffer_toString(sb), "select a from b"));
+                assert(Str_isEqual(StringBuffer_toString(sb), "select a from b;"));
                 StringBuffer_free(&sb);
                 assert(sb == NULL);
         }

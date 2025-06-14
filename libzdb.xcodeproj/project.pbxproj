@@ -7,15 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		521917D72C613FD400D9B39C /* libmysqlclient.21.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 521917D42C613F7E00D9B39C /* libmysqlclient.21.dylib */; };
-		521917D82C613FD400D9B39C /* libmysqlclient.21.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 521917D42C613F7E00D9B39C /* libmysqlclient.21.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		523455382C3B687700D3A187 /* libpq.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 523455372C3B687700D3A187 /* libpq.dylib */; };
 		5234553C2C3B68FA00D3A187 /* libsqlite3.0.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5234553B2C3B68FA00D3A187 /* libsqlite3.0.dylib */; };
-		5239BCCA2DF1783800711152 /* libmysqlclient.21.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 521917D42C613F7E00D9B39C /* libmysqlclient.21.dylib */; };
-		5239BCCD2DF1783800711152 /* libssl.1.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5239BCCB2DF1783800711152 /* libssl.1.1.dylib */; };
-		5239BCCE2DF1783800711152 /* libssl.1.1.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 5239BCCB2DF1783800711152 /* libssl.1.1.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		5239BCCF2DF1783800711152 /* libcrypto.1.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5239BCCC2DF1783800711152 /* libcrypto.1.1.dylib */; };
-		5239BCD02DF1783800711152 /* libcrypto.1.1.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 5239BCCC2DF1783800711152 /* libcrypto.1.1.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		523FDBAC2243A82200B3C767 /* libzdb.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 528F4D3C145A5AA3002CD67D /* libzdb.dylib */; };
 		523FDBB22243A83E00B3C767 /* zdbpp.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 523FDB9622438C5400B3C767 /* zdbpp.cpp */; };
 		524B1E701543696800158F6E /* libzdb.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 528F4D3C145A5AA3002CD67D /* libzdb.dylib */; };
@@ -34,6 +27,12 @@
 		52C32F54145BABE200C72758 /* unit.c in Sources */ = {isa = PBXBuildFile; fileRef = 52788C2313E716A0002F3C7C /* unit.c */; };
 		52C32F55145BABEC00C72758 /* libzdb.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 528F4D3C145A5AA3002CD67D /* libzdb.dylib */; };
 		52C32F58145BD12800C72758 /* Mem.c in Sources */ = {isa = PBXBuildFile; fileRef = 52C32F56145BD12800C72758 /* Mem.c */; };
+		52DD92242DFE021D00F360B9 /* libssl.1.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 52DD92212DFE021D00F360B9 /* libssl.1.1.dylib */; };
+		52DD92252DFE021D00F360B9 /* libssl.1.1.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 52DD92212DFE021D00F360B9 /* libssl.1.1.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		52DD92262DFE021D00F360B9 /* libcrypto.1.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 52DD92222DFE021D00F360B9 /* libcrypto.1.1.dylib */; };
+		52DD92272DFE021D00F360B9 /* libcrypto.1.1.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 52DD92222DFE021D00F360B9 /* libcrypto.1.1.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		52DD92282DFE021D00F360B9 /* libmysqlclient.21.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 52DD92232DFE021D00F360B9 /* libmysqlclient.21.dylib */; };
+		52DD92292DFE021D00F360B9 /* libmysqlclient.21.dylib in Embed Libraries */ = {isa = PBXBuildFile; fileRef = 52DD92232DFE021D00F360B9 /* libmysqlclient.21.dylib */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		52DE1E08223489BE00173D1B /* SQLiteConnection.c in Sources */ = {isa = PBXBuildFile; fileRef = 52788C0013E716A0002F3C7C /* SQLiteConnection.c */; };
 		52DE1E09223489BE00173D1B /* SQLitePreparedStatement.c in Sources */ = {isa = PBXBuildFile; fileRef = 52788C0213E716A0002F3C7C /* SQLitePreparedStatement.c */; };
 		52DE1E0A223489BE00173D1B /* SQLiteResultSet.c in Sources */ = {isa = PBXBuildFile; fileRef = 52788C0413E716A0002F3C7C /* SQLiteResultSet.c */; };
@@ -107,19 +106,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		521917D92C613FD400D9B39C /* Embed Libraries */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				521917D82C613FD400D9B39C /* libmysqlclient.21.dylib in Embed Libraries */,
-				5239BCCE2DF1783800711152 /* libssl.1.1.dylib in Embed Libraries */,
-				5239BCD02DF1783800711152 /* libcrypto.1.1.dylib in Embed Libraries */,
-			);
-			name = "Embed Libraries";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		523FDBAD2243A82200B3C767 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 12;
@@ -164,6 +150,19 @@
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
+		};
+		52DD922A2DFE021D00F360B9 /* Embed Libraries */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 10;
+			files = (
+				52DD92292DFE021D00F360B9 /* libmysqlclient.21.dylib in Embed Libraries */,
+				52DD92252DFE021D00F360B9 /* libssl.1.1.dylib in Embed Libraries */,
+				52DD92272DFE021D00F360B9 /* libcrypto.1.1.dylib in Embed Libraries */,
+			);
+			name = "Embed Libraries";
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
@@ -263,6 +262,9 @@
 		52C32EED145BA3FA00C72758 /* Time.re */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Time.re; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		52C32F56145BD12800C72758 /* Mem.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; path = Mem.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		52C32F57145BD12800C72758 /* Mem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; lineEnding = 0; path = Mem.h; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.objcpp; };
+		52DD92212DFE021D00F360B9 /* libssl.1.1.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libssl.1.1.dylib; path = "../../../../usr/local/mysql-8.0.19-macos10.15-x86_64/lib/libssl.1.1.dylib"; sourceTree = "<group>"; };
+		52DD92222DFE021D00F360B9 /* libcrypto.1.1.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.1.1.dylib; path = "../../../../usr/local/mysql-8.0.19-macos10.15-x86_64/lib/libcrypto.1.1.dylib"; sourceTree = "<group>"; };
+		52DD92232DFE021D00F360B9 /* libmysqlclient.21.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libmysqlclient.21.dylib; path = "../../../../usr/local/mysql-8.0.19-macos10.15-x86_64/lib/libmysqlclient.21.dylib"; sourceTree = "<group>"; };
 		52DE1E032232ED8C00173D1B /* PostgresqlAdapter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PostgresqlAdapter.h; sourceTree = "<group>"; };
 		52DE1E07223478A800173D1B /* MysqlAdapter.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MysqlAdapter.h; sourceTree = "<group>"; };
 		52E160F9241B068400022FD7 /* ax_info.m4 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ax_info.m4; sourceTree = "<group>"; };
@@ -315,12 +317,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				521917D72C613FD400D9B39C /* libmysqlclient.21.dylib in Frameworks */,
 				523455382C3B687700D3A187 /* libpq.dylib in Frameworks */,
-				5239BCCA2DF1783800711152 /* libmysqlclient.21.dylib in Frameworks */,
 				5234553C2C3B68FA00D3A187 /* libsqlite3.0.dylib in Frameworks */,
-				5239BCCD2DF1783800711152 /* libssl.1.1.dylib in Frameworks */,
-				5239BCCF2DF1783800711152 /* libcrypto.1.1.dylib in Frameworks */,
+				52DD92242DFE021D00F360B9 /* libssl.1.1.dylib in Frameworks */,
+				52DD92282DFE021D00F360B9 /* libmysqlclient.21.dylib in Frameworks */,
+				52DD92262DFE021D00F360B9 /* libcrypto.1.1.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -555,8 +556,11 @@
 			isa = PBXGroup;
 			children = (
 				5239BCCC2DF1783800711152 /* libcrypto.1.1.dylib */,
+				52DD92222DFE021D00F360B9 /* libcrypto.1.1.dylib */,
+				52DD92232DFE021D00F360B9 /* libmysqlclient.21.dylib */,
 				5239BCCB2DF1783800711152 /* libssl.1.1.dylib */,
 				521917D42C613F7E00D9B39C /* libmysqlclient.21.dylib */,
+				52DD92212DFE021D00F360B9 /* libssl.1.1.dylib */,
 				5234553B2C3B68FA00D3A187 /* libsqlite3.0.dylib */,
 				523455392C3B689100D3A187 /* libmysqlclient.dylib */,
 				523455372C3B687700D3A187 /* libpq.dylib */,
@@ -695,7 +699,7 @@
 				52F236FA13E724D600D24B82 /* Sources */,
 				52F236FB13E724D600D24B82 /* Frameworks */,
 				52F236FC13E724D600D24B82 /* Headers */,
-				521917D92C613FD400D9B39C /* Embed Libraries */,
+				52DD922A2DFE021D00F360B9 /* Embed Libraries */,
 			);
 			buildRules = (
 				52B1F2BA13E75279004869F0 /* PBXBuildRule */,
@@ -1210,6 +1214,7 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"/usr/local/mysql-8.0.32-macos13-arm64/lib",
+					"/usr/local/mysql-8.0.19-macos10.15-x86_64/lib",
 				);
 				PRIVATE_HEADERS_FOLDER_PATH = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1235,6 +1240,7 @@
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
 					"/usr/local/mysql-8.0.32-macos13-arm64/lib",
+					"/usr/local/mysql-8.0.19-macos10.15-x86_64/lib",
 				);
 				PRIVATE_HEADERS_FOLDER_PATH = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";

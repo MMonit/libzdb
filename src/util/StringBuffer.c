@@ -98,22 +98,6 @@ static int _prepare(T S, char prefix) {
 }
 
 
-static inline bool _hasTrailingWs(T S) {
-        if (S->used > 0) {
-                if (isspace(S->buffer[S->used - 1]))
-                    return true;
-                if (S->buffer[S->used - 1] == ';') {
-                        if (S->used > 3)
-                                return ! (tolower(S->buffer[S->used - 2]) == 'd'
-                                          && tolower(S->buffer[S->used - 3]) == 'n'
-                                          && tolower(S->buffer[S->used - 4]) == 'e');
-                        return true;
-                }
-        }
-        return false;
-}
-
-
 static inline T _ctor(int hint) {
         T S;
         NEW(S);
@@ -235,12 +219,14 @@ int StringBuffer_prepare4oracle(T S) {
 T StringBuffer_trim(T S) {
         assert(S);
         // Right trim
-        while (_hasTrailingWs(S))
-                S->buffer[--S->used] = 0;
+        if (S->used > 0) {
+                while (isspace(S->buffer[S->used - 1]))
+                        S->buffer[--S->used] = 0;
+        }
         // Left trim
         if (isspace(*S->buffer)) {
-                int i;
-                for (i = 0; isspace(S->buffer[i]); i++) ;
+                int i = 0;
+                while (isspace(S->buffer[i])) i++;
                 memmove(S->buffer, S->buffer + i, S->used - i);
                 S->used -= i;
                 S->buffer[S->used] = 0;
