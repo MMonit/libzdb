@@ -284,6 +284,10 @@ static ResultSet_T _executeQuery(T C, const char *sql, va_list ap) {
         va_end(ap_copy);
         MYSQL_STMT *stmt = NULL;
         if (_prepare(C, StringBuffer_toString(C->sb), StringBuffer_length(C->sb), &stmt)) {
+#if MYSQL_VERSION_ID >= 50002
+                unsigned long cursor = CURSOR_TYPE_READ_ONLY;
+                mysql_stmt_attr_set(stmt, STMT_ATTR_CURSOR_TYPE, &cursor);
+#endif
                 if ((C->lastError = mysql_stmt_execute(stmt))) {
                         StringBuffer_set(C->sb, "%s", mysql_stmt_error(stmt));
                         mysql_stmt_close(stmt);

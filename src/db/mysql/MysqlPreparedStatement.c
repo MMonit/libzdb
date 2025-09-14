@@ -191,6 +191,10 @@ static void _execute(T P) {
                 if ((P->lastError = mysql_stmt_bind_param(P->stmt, P->bind)))
                         THROW(SQLException, "%s", mysql_stmt_error(P->stmt));
         }
+#if MYSQL_VERSION_ID >= 50002
+        unsigned long cursor = CURSOR_TYPE_NO_CURSOR;
+        mysql_stmt_attr_set(P->stmt, STMT_ATTR_CURSOR_TYPE, &cursor);
+#endif
         if ((P->lastError = mysql_stmt_execute(P->stmt)))
                 THROW(SQLException, "%s", mysql_stmt_error(P->stmt));
         if (P->lastError == MYSQL_OK) {
@@ -206,6 +210,10 @@ static ResultSet_T _executeQuery(T P) {
                 if ((P->lastError = mysql_stmt_bind_param(P->stmt, P->bind)))
                         THROW(SQLException, "%s", mysql_stmt_error(P->stmt));
         }
+#if MYSQL_VERSION_ID >= 50002
+        unsigned long cursor = CURSOR_TYPE_READ_ONLY;
+        mysql_stmt_attr_set(P->stmt, STMT_ATTR_CURSOR_TYPE, &cursor);
+#endif
         if ((P->lastError = mysql_stmt_execute(P->stmt)))
                 THROW(SQLException, "%s", mysql_stmt_error(P->stmt));
         if (P->lastError == MYSQL_OK)
