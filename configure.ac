@@ -304,9 +304,7 @@ AC_SUBST(UNIT_TEST)
 # ------------------------------------------------------------------------
 
 # Require a working sigsetjmp
-AC_CHECK_DECLS([sigsetjmp], [], [AC_MSG_FAILURE([sigsetjmp is required])],
-        [[#define _POSIX_C_SOURCE 200809L
-          #include <setjmp.h>]])
+AC_CHECK_DECLS([sigsetjmp], [], [AC_MSG_FAILURE([sigsetjmp is required])], [[#include <setjmp.h>]])
 
 # Require that we have vsnprintf that conforms to c11. I.e. does bounds check
 AC_CACHE_CHECK([vsnprintf is c11 conformant],
