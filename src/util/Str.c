@@ -96,6 +96,24 @@ bool Str_startsWith(const char *a, const char *b) {
 }
 
 
+char *Str_sub(const char *a, const char *b) {
+        if (a && STR_DEF(b)) {
+                while (*a) {
+                        if (toupper(*a) == toupper(*b)) {
+                                const char* ap = a;
+                                const char* bp = b;
+                                do
+                                        if (! *bp)
+                                                return (char*)a;
+                                while (toupper(*ap++) == toupper(*bp++));
+                        }
+                        a++;
+                }
+        }
+        return NULL;
+}
+
+
 bool Str_member(const char *s, const char **set) {
         if (STR_DEF(s) && set) {
                 for (int i = 0; set[i]; i++) {
@@ -229,7 +247,6 @@ bool Str_parseBool(const char *s) {
         }
         return false;
 }
-
 
 
 #ifdef PACKAGE_PROTECTED

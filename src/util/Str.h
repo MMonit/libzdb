@@ -85,6 +85,25 @@ bool Str_startsWith(const char *a, const char *b);
 
 
 /**
+ * Returns the first substring of <i>a</i> that match the string <code>b</code>.
+ * If any of the parameters are NULL or <code>b</code> is an empty string,
+ * NULL is returned. The test is <i>case-insensitive</i>.
+ * Example:
+ * <pre>
+ * Str_sub("Haystack with Needle", "needle") -> "Needle"
+ * Str_sub("foo bar baz", "bar") -> "bar baz"
+ * Str_sub("foo", "foo bar") -> NULL
+ * Str_sub("foo", "") -> NULL
+ * </pre>
+ * @param a The string to search for b in
+ * @param b The sub-string to search for in a
+ * @return A pointer to the start of the substring in a that contains b,
+ * otherwise NULL
+ */
+char *Str_sub(const char *a, const char *b);
+
+
+/**
  * Returns true if <i>s</i> is equal to a string in the <code>set</code> 
  * of strings. It is an unchecked runtime error for the last element of
  * the set not to be NULL

@@ -149,6 +149,16 @@ static void testStr(void) {
         }
         printf("=> Test7: OK\n\n");
 
+        printf("=> Test8: member\n");
+        {
+                assert(Str_isEqual(Str_sub("Haystack with Needle", "needle"), "Needle"));
+                assert(!Str_sub("Haystack with Needle", "hay stack"));
+                assert(Str_sub("MySQL 8.0.35-router", "router") != NULL);
+                assert(Str_sub("5.7.42-MaxScale", "maxscale") != NULL);
+                assert(Str_sub("8.0.33", "router") == NULL);
+        }
+        printf("=> Test8: OK\n\n");
+
         
         printf("============> Str Tests: OK\n\n");
 }

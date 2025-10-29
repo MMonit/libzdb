@@ -30,6 +30,7 @@
 #include <errmsg.h>
 #include <ctype.h>
 
+#include "Str.h"
 #include "MysqlAdapter.h"
 #include "StringBuffer.h"
 #include "ConnectionDelegate.h"
@@ -58,6 +59,34 @@ extern const struct Pop_T mysqlpops;
 
 
 /* --------------------------------------------------------- Private methods */
+
+
+static bool _checkIfMySQLProxy(MYSQL *db, char **error) {
+        const char *server_info = mysql_get_server_info(db);
+        if (!server_info) return false;
+        
+        const char *proxy_type = NULL;
+        if (Str_sub(server_info, "router")) {
+                proxy_type = "MySQL Router";
+        } else if (Str_sub(server_info, "maxscale")) {
+                proxy_type = "MariaDB MaxScale";
+        } else if (Str_sub(server_info, "proxy")) {
+                proxy_type = "MySQL Proxy";
+        } else if (Str_sub(server_info, "proxysql")) {
+                proxy_type = "ProxySQL";
+        } else if (Str_sub(server_info, "vitess")) {
+                proxy_type = "Vitess";
+        }
+        
+        if (proxy_type) {
+                *error = Str_cat("%s detected (%s).\n"
+                        "MySQL proxies are not supported due to connection stability and prepared statement compatibility issues.\n"
+                        "Please connect directly to your MySQL/MariaDB server instead.",
+                        proxy_type, server_info);
+                return true;
+        }
+        return false;
+}
 
 
 static MYSQL *_doConnect(Connection_T delegator, char **error) {
@@ -149,8 +178,14 @@ static MYSQL *_doConnect(Connection_T delegator, char **error) {
         }
 
         // Connect
-        if (mysql_real_connect(db, host, user, password, database, port, unix_socket, clientFlags))
+        if (mysql_real_connect(db, host, user, password, database, port, unix_socket, clientFlags)) {
+                // Check for MySQL Proxies after successful connection (unless explicitly allowed)
+                if (!Str_parseBool(URL_getParameter(url, "allow-proxy"))) {
+                        if (_checkIfMySQLProxy(db, error))
+                                goto error;
+                }
                 return db;
+        }
         *error = Str_dup(mysql_error(db));
 error:
         mysql_close(db);

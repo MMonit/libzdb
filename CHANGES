@@ -6,6 +6,11 @@ Version 3.4.2
 -------------
 
 * New: Add isnullByName() to complement isnull()
+* Added MySQL proxy detection to prevent connection issues. libzdb now automatically
+  detects and blocks connections to MySQL Router, ProxySQL, MariaDB MaxScale, and
+  other MySQL proxies due to prepared statement compatibility issues. A new
+  'allow-proxy=true' URL parameter can override this behavior for advanced users.
+* Added Str_sub() function for case-insensitive substring matching.
 
 Version 3.4.1
 -------------

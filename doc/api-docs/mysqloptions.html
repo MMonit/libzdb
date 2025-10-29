@@ -178,6 +178,20 @@
                 Number [1..int.max]
             </td>
         </tr>
+        <tr>
+            <td>
+                allow-proxy
+            </td>
+            <td>
+                Allow connections to MySQL proxies such as MySQL Router, ProxySQL, MariaDB MaxScale, and others. 
+                <strong>Warning:</strong> MySQL proxies may have connection stability and prepared statement compatibility issues. 
+                Use this option only if you understand the risks and limitations. Default is false.
+                <p class="example">Example: allow-proxy=true</p>
+            </td>
+            <td>
+                Boolean (true/false)
+            </td>
+        </tr>
 
     </table>
 </body>
