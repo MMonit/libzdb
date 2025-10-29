@@ -149,7 +149,7 @@ static void testStr(void) {
         }
         printf("=> Test7: OK\n\n");
 
-        printf("=> Test8: member\n");
+        printf("=> Test8: sub-string\n");
         {
                 assert(Str_isEqual(Str_sub("Haystack with Needle", "needle"), "Needle"));
                 assert(!Str_sub("Haystack with Needle", "hay stack"));
