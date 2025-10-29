@@ -72,8 +72,6 @@ static bool _checkIfMySQLProxy(MYSQL *db, char **error) {
                 proxy_type = "MariaDB MaxScale";
         } else if (Str_sub(server_info, "proxy")) {
                 proxy_type = "MySQL Proxy";
-        } else if (Str_sub(server_info, "proxysql")) {
-                proxy_type = "ProxySQL";
         } else if (Str_sub(server_info, "vitess")) {
                 proxy_type = "Vitess";
         }
