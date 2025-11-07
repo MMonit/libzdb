@@ -7,33 +7,32 @@ Version 3.4.2
 
 * New: Add isnullByName() to complement isnull()
 * Added MySQL proxy detection to prevent connection issues.
-  libzdb now automatically detects and blocks connections to
+  Libzdb now automatically detects and blocks connections to
   MySQL Router, ProxySQL, MariaDB MaxScale, and other MySQL
   proxies due to fundamental protocol limitations.
   
   MySQL proxies are designed for simplified SQL usage (load
   balancing, connection routing, query rewriting) and do not
-  fully implement the MySQL binary protocol, particularly the
-  advanced features that libzdb requires such as prepared
-  statements with the binary protocol, server-side cursors, and
-  cursor-based batch fetching for memory-efficient result set
-  processing. Without cursor support, proxies typically fall
-  back to buffering entire result sets in memory on both the server
-  and client side, which can consume excessive memory (RAM) and
-  prevents the ability to abort large query processing mid-flight,
-  which libzdb can do.
+  fully implement the MySQL binary protocol—particularly the
+  advanced features that libzdb requires, such as prepared
+  statements, server-side cursors, and cursor-based batch fetching
+  for memory-efficient result set processing. Without cursor
+  support, proxies typically fall back to buffering entire result
+  sets in memory on both the server and client side, which can
+  consume excessive memory (RAM) and prevents the ability to abort
+  large query processing mid-flight—something libzdb supports.
   
   These advanced features enable libzdb to provide superior
   performance and bounded memory usage compared to what is
   possible through a MySQL proxy. Using libzdb directly
-  against a MySQL/MariaDB server is both required for
-  compatibility and significantly more efficient.
+  against a MySQL/MariaDB server is strongly recommended for
+  compatibility and efficiency.
   
   Advanced users who understand these limitations can override
-  this restriction using the 'allow-proxy=true' URL parameter,
+  this restriction using the allow-proxy=true URL parameter,
   though connection failures or unpredictable behavior may
   result.
-  
+
 Version 3.4.1
 -------------
 
