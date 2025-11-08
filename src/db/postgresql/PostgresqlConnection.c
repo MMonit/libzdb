@@ -42,8 +42,8 @@
  * Implementation of the Connection/Delegate interface for PostgreSQL.
  *
  * Note: Due to design limitations in both libpq and PostgreSQL's
- * architecture, this implementation does not support the memory-bounded
- * streaming behavior available with MySQL and Oracle.
+ * architecture, this implementation does not support the superior
+ * memory-bounded streaming behavior we use with MySQL and Oracle.
  *
  * The core issue is that libpq's PQexec() buffers entire result sets in
  * client memory before returning, even when the PostgreSQL server is
