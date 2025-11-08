@@ -39,11 +39,39 @@
 
 
 /**
- * Implementation of the Connection/Delegate interface for postgresql. 
- * 
+ * Implementation of the Connection/Delegate interface for PostgreSQL.
+ *
+ * Note: Due to design limitations in both libpq and PostgreSQL's
+ * architecture, this implementation does not support the memory-bounded
+ * streaming behavior available with MySQL and Oracle.
+ *
+ * The core issue is that libpq's PQexec() buffers entire result sets in
+ * client memory before returning, even when the PostgreSQL server is
+ * streaming tuples over the socket. This is a design choice, not a
+ * fundamental protocol limitation - libpq simply waits to receive all
+ * rows before giving control back to the application. This means:
+ * - Result sets are fully buffered on the client side
+ * - For queries requiring server-side materialization (ORDER BY, GROUP BY,
+ *   etc.), the result set is allocated TWICE: once on the server and once
+ *   in libpq, potentially doubling memory consumption
+ * - Large queries cannot be aborted mid-execution to free server resources
+ *
+ * While PostgreSQL does support server-side cursors (DECLARE/FETCH), they
+ * are poorly suited for a general-purpose connection library: they require
+ * an explicit transaction context, each fetch is a separate query round-trip,
+ * and they lack the transparent, efficient cursor support that MySQL and
+ * Oracle provide at the protocol level.
+ *
+ * libpq's PQsetSingleRowMode() only addresses client-side buffering and
+ * does nothing for server-side memory usage or query abort capability.
+ *
+ * On the positive side, this simpler execution model means libzdb works
+ * reliably with PostgreSQL connection proxies (pgBouncer, PgPool-II, etc.)
+ * when using simple queries. Note that prepared statements may still
+ * experience compatibility issues with certain proxy configurations.
+ *
  * @file
  */
-
 
 /* ----------------------------------------------------------- Definitions */
 
