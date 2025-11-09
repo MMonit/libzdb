@@ -129,7 +129,7 @@ static bool _doConnect(T C, char **error) {
         else
                 ERROR("no database specified in URL");
         /* SSL Options */
-        StringBuffer_append(C->sb, "sslmode='%s' ", IS(URL_getParameter(url, "use-ssl"), "true") ? "require" : "disable");
+        StringBuffer_append(C->sb, "sslmode='%s' ", Str_parseBool(URL_getParameter(url, "use-ssl")) ? "require" : "disable");
         if (URL_getParameter(url, "ssl-ca")) {
                 StringBuffer_append(C->sb, "sslrootcert='%s' ", URL_getParameter(url, "ssl-ca"));
         }

@@ -172,7 +172,7 @@ static bool _doConnect(T C, char**  error) {
         if (C->lastError != OCI_SUCCESS && C->lastError != OCI_SUCCESS_WITH_INFO)
                 ORAERROR(C);
         ub4 sessionFlags = OCI_DEFAULT;
-        if (IS(URL_getParameter(url, "sysdba"), "true")) {
+        if (Str_parseBool(URL_getParameter(url, "sysdba"))) {
                 sessionFlags |= OCI_SYSDBA;
         }
         C->lastError = OCISessionBegin(C->svc, C->err, C->usr, OCI_CRED_RDBMS, sessionFlags);
