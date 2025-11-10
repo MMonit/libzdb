@@ -493,7 +493,6 @@ void ConnectionPool_stop(T P);
  * @param P A ConnectionPool object
  * @return A connection from the pool or NULL if a database error occurred.
  * @see Connection.h
- * @see ConnectionPool_setMaxRetries(T P, int maxRetries)
  */
 Connection_T ConnectionPool_getConnection(T P);
 
