@@ -183,21 +183,21 @@ struct tm *Time_toDateTime(const char *s, struct tm *t) {
         assert(s);
         struct tm tm = {.tm_isdst = -1}; 
         bool have_date = false, have_time = false;
-        const char *limit = s + strlen(s), *marker, *token, *cursor = s;
+        const char *yylimit = s + strlen(s), *yymarker, *yytoken, *yycursor = s;
 	while (true) {
-		if (cursor >= limit) {
+		if (yycursor >= yylimit) {
                         if (have_date || have_time) {
                                 *(struct tm*)t = tm;
                                 return t;
                         }
                         THROW(SQLException, "Invalid date or time");
                 }
-                token = cursor;
+                yytoken = yycursor;
                 /*!re2c
                  re2c:define:YYCTYPE         = "unsigned char";
-                 re2c:define:YYCURSOR        = cursor;
-                 re2c:define:YYLIMIT         = limit;
-                 re2c:define:YYMARKER        = marker;
+                 re2c:define:YYCURSOR        = yycursor;
+                 re2c:define:YYLIMIT         = yylimit;
+                 re2c:define:YYMARKER        = yymarker;
                  re2c:yyfill:enable          = 0;
                  re2c:eof                    = 0;
                  re2c:flags:case-insensitive = 1;
@@ -217,56 +217,56 @@ struct tm *Time_toDateTime(const char *s, struct tm *t) {
 
                  yyyy x dd x dd
                  { // Date: YYYY-MM-DD
-                        tm.tm_year = _a2i(token, 4);
-                        tm.tm_mon  = _a2i(token + 5, 2) - 1;
-                        tm.tm_mday = _a2i(token + 8, 2);
+                        tm.tm_year = _a2i(yytoken, 4);
+                        tm.tm_mon  = _a2i(yytoken + 5, 2) - 1;
+                        tm.tm_mday = _a2i(yytoken + 8, 2);
                         have_date  = _isValidDate(tm);
                         continue;
                  }
                  yyyy dd dd
                  { // Compressed Date: YYYYMMDD
-                        tm.tm_year = _a2i(token, 4);
-                        tm.tm_mon  = _a2i(token + 4, 2) - 1;
-                        tm.tm_mday = _a2i(token + 6, 2);
+                        tm.tm_year = _a2i(yytoken, 4);
+                        tm.tm_mon  = _a2i(yytoken + 4, 2) - 1;
+                        tm.tm_mday = _a2i(yytoken + 6, 2);
                         have_date  = _isValidDate(tm);
                         continue;
                  }
                  dd x dd x yyyy
                  { // Date: dd/mm/yyyy
-                        tm.tm_mday = _a2i(token, 2);
-                        tm.tm_mon  = _a2i(token + 3, 2) - 1;
-                        tm.tm_year = _a2i(token + 6, 4);
+                        tm.tm_mday = _a2i(yytoken, 2);
+                        tm.tm_mon  = _a2i(yytoken + 3, 2) - 1;
+                        tm.tm_year = _a2i(yytoken + 6, 4);
                         have_date  = _isValidDate(tm);
                         continue;
                  }
                  dd x mmm x yyyy
                  { // Date: Parse date part of RFC 7231 IMF-fixdate (HTTP date), e.g. Sun, 06 Nov 1994 08:49:37 GMT
-                        tm.tm_mday = _a2i(token, 2);
-                        tm.tm_mon  = _m2i(token + 3);
-                        tm.tm_year = _a2i(token + 7, 4);
+                        tm.tm_mday = _a2i(yytoken, 2);
+                        tm.tm_mon  = _m2i(yytoken + 3);
+                        tm.tm_year = _a2i(yytoken + 7, 4);
                         have_date  = _isValidDate(tm);
                         continue;
                  }
                  dd x dd x dd frac?
                  { // Time: HH:MM:SS
-                        tm.tm_hour = _a2i(token, 2);
-                        tm.tm_min  = _a2i(token + 3, 2);
-                        tm.tm_sec  = _a2i(token + 6, 2);
+                        tm.tm_hour = _a2i(yytoken, 2);
+                        tm.tm_min  = _a2i(yytoken + 3, 2);
+                        tm.tm_sec  = _a2i(yytoken + 6, 2);
                         have_time  = _isValidTime(tm);
                         continue;
                  }
                  dd dd dd frac?
                  { // Compressed Time: HHMMSS
-                        tm.tm_hour = _a2i(token, 2);
-                        tm.tm_min  = _a2i(token + 2, 2);
-                        tm.tm_sec  = _a2i(token + 4, 2);
+                        tm.tm_hour = _a2i(yytoken, 2);
+                        tm.tm_min  = _a2i(yytoken + 2, 2);
+                        tm.tm_sec  = _a2i(yytoken + 4, 2);
                         have_time  = _isValidTime(tm);
                         continue;
                  }
                  dd ':' dd
                  { // Time: HH:MM
-                        tm.tm_hour = _a2i(token, 2);
-                        tm.tm_min  = _a2i(token + 3, 2);
+                        tm.tm_hour = _a2i(yytoken, 2);
+                        tm.tm_min  = _a2i(yytoken + 3, 2);
                         tm.tm_sec  = 0;
                         have_time  = _isValidTime(tm);
                         continue;
@@ -274,12 +274,12 @@ struct tm *Time_toDateTime(const char *s, struct tm *t) {
                  tz
                  { // Timezone: +-HH:MM, +-HH or +-HHMM is offset from UTC in seconds
                         if (have_time) { // Only set timezone if we have parsed time
-                                tm.TM_GMTOFF = _a2i(token + 1, 2) * 3600;
-                                if (isdigit(token[3]))
-                                        tm.TM_GMTOFF += _a2i(token + 3, 2) * 60;
-                                else if (isdigit(token[4]))
-                                        tm.TM_GMTOFF += _a2i(token + 4, 2) * 60;
-                                if (token[0] == '-')
+                                tm.TM_GMTOFF = _a2i(yytoken + 1, 2) * 3600;
+                                if (isdigit(yytoken[3]))
+                                        tm.TM_GMTOFF += _a2i(yytoken + 3, 2) * 60;
+                                else if (isdigit(yytoken[4]))
+                                        tm.TM_GMTOFF += _a2i(yytoken + 4, 2) * 60;
+                                if (yytoken[0] == '-')
                                         tm.TM_GMTOFF *= -1;
                         }
                         continue;
