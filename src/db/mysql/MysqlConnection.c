@@ -78,9 +78,10 @@ static bool _isConnectedToMySQLProxy(MYSQL *db, char **error) {
         
         if (proxy_type) {
                 *error = Str_cat("%s detected (%s).\n"
-                        "MySQL proxies are not supported due to connection stability and prepared statement compatibility issues.\n"
-                        "Please connect directly to your MySQL/MariaDB server instead.",
-                        proxy_type, server_info);
+                                 "MySQL proxies are not supported due to connection stability and prepared\n"
+                                 "statement compatibility issues. Please connect directly to your MySQL/MariaDB\n"
+                                 "server instead.",
+                                 proxy_type, server_info);
                 return true;
         }
         return false;
