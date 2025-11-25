@@ -156,18 +156,18 @@ static inline Connection_T _getAvailableConnection(T P) {
 
 static inline Connection_T _createConnection(T P, char error[static STRLEN]) {
         Connection_T con = Connection_new(P, &P->error);
-        if (con) {
-                LOCK(P->mutex)
-                {
+        LOCK(P->mutex)
+        {
+                if (con) {
                         Connection_setAvailable(con, false);
                         Vector_push(P->pool, con);
+                } else {
+                        snprintf(error, STRLEN, "Failed to create a connection -- %s",
+                                 STR_DEF(P->error) ? P->error : "unknown error");
+                        FREE(P->error);
                 }
-                END_LOCK;
-        } else {
-                snprintf(error, STRLEN, "Failed to create a connection -- %s",
-                         STR_DEF(P->error) ? P->error : "unknown error");
-                FREE(P->error);
         }
+        END_LOCK;
         return con;
 }
 

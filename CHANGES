@@ -16,6 +16,9 @@ Version 3.4.2
   Connection_commit(), or Connection_rollback() functions failed
   (e.g., due to an offline database), and an exception was thrown,
   the exception description contained either "Unknown error" or "?".
+* Fixed: memory corruption when libzdb is used in a multi-threaded application,
+  the database is down, connection pool empty and and two threads are
+  trying to call ConnectionPool_getConnection().
 
 Version 3.4.1
 -------------
