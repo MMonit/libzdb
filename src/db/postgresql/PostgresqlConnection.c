@@ -189,7 +189,12 @@ static T _new(Connection_T delegator, char **error) {
 
 static bool _ping(T C) {
         assert(C);
-        return (PQstatus(C->db) == CONNECTION_OK);
+        PQclear(C->res);
+        C->res = PQexec(C->db, "");
+        if (PQresultStatus(C->res) == PGRES_EMPTY_QUERY) {
+                return true;
+        }
+        return false;
 }
 
 
