@@ -12,6 +12,10 @@ Version 3.4.2
   server instead. Advanced users who understand these limitations can
   override this restriction using the allow-proxy=true URL parameter,
   though connection failures or unpredictable behavior may result.
+* Fixed: PostgreSQL: If the Connection_beginTransaction(),
+  Connection_commit(), or Connection_rollback() functions failed
+  (e.g., due to an offline database), and an exception was thrown,
+  the exception description contained either "Unknown error" or "?".
 
 Version 3.4.1
 -------------

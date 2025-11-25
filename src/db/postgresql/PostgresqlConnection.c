@@ -216,27 +216,27 @@ static bool _beginTransactionType(T C, TRANSACTION_TYPE type) {
                 default:
                         sql = "BEGIN TRANSACTION;";
         }
-        PGresult *res = PQexec(C->db, sql);
-        C->lastError = PQresultStatus(res);
-        PQclear(res);
+        PQclear(C->res);
+        C->res = PQexec(C->db, sql);
+        C->lastError = PQresultStatus(C->res);
         return (C->lastError == PGRES_COMMAND_OK);
 }
 
 
 static bool _commit(T C) {
 	assert(C);
-        PGresult *res = PQexec(C->db, "COMMIT TRANSACTION;");
-        C->lastError = PQresultStatus(res);
-        PQclear(res);
+        PQclear(C->res);
+        C->res = PQexec(C->db, "COMMIT TRANSACTION;");
+        C->lastError = PQresultStatus(C->res);
         return (C->lastError == PGRES_COMMAND_OK);
 }
 
 
 static bool _rollback(T C) {
 	assert(C);
-        PGresult *res = PQexec(C->db, "ROLLBACK TRANSACTION;");
-        C->lastError = PQresultStatus(res);
-        PQclear(res);
+        PQclear(C->res);
+        C->res = PQexec(C->db, "ROLLBACK TRANSACTION;");
+        C->lastError = PQresultStatus(C->res);
         return (C->lastError == PGRES_COMMAND_OK);
 }
 
