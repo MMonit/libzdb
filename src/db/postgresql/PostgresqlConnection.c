@@ -191,10 +191,7 @@ static bool _ping(T C) {
         assert(C);
         PQclear(C->res);
         C->res = PQexec(C->db, "");
-        if (PQresultStatus(C->res) == PGRES_EMPTY_QUERY) {
-                return true;
-        }
-        return false;
+        return (PQresultStatus(C->res) == PGRES_EMPTY_QUERY);
 }
 
 
