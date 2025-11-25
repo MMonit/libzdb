@@ -485,7 +485,7 @@ int ConnectionPool_active(T P) {
         int n = 0;
         LOCK(P->mutex)
         {
-                Vector_map(P->pool, _mapActive, &n);
+                n = _active(P);
         }
         END_LOCK;
         return n;
