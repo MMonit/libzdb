@@ -43,10 +43,10 @@
  *
  * This implementation provides a thread-safe, self-managing connection pool.
  * - Dynamic pool size management between initial and max connections
- * - Periodic connection reaping to remove idle and non-responsive connections
+ * - Periodic connection reaping to remove idle connections
  * - Efficient "rolling window" approach: removing old connections from the start
  *   of the pool vector, adding new ones to the end
- * - Double-check connection validity: both in reaping and before serving to clients
+ * - Check connection validity before serving to clients
  *
  * @file
  */
@@ -230,11 +230,15 @@ static int _reapConnections(T P) {
         int x = Vector_size(P->pool) - _active(P) - P->initialConnections;
         time_t timedout = Time_now() - P->connectionTimeout;
         // We don't always examine all idle connections in a single run,
-        // but over multiple runs this should cycles through all connections
+        // but over multiple runs this should cycles through all connections.
+        // We only remove connections that have exceeded its timeout.
+        // Connection_ping() is not performed here to avoid blocking the pool
+        // with network I/O while holding the lock. Dead connections are detected
+        // and removed by _getConnection() before being returned to clients.
         for (int i = 0; ((n < x) && (i < Vector_size(P->pool))); i++) {
                 Connection_T con = Vector_get(P->pool, i);
                 if (Connection_isAvailable(con)) {
-                        if ((Connection_getLastAccessedTime(con) < timedout) || (! Connection_ping(con))) {
+                        if ((Connection_getLastAccessedTime(con) < timedout)) {
                                 Vector_remove(P->pool, i);
                                 Connection_free(&con);
                                 n++;

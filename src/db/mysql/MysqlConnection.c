@@ -91,9 +91,6 @@ static bool _isConnectedToMySQLProxy(MYSQL *db, char **error) {
 static MYSQL *_doConnect(Connection_T delegator, char **error) {
 #define ERROR(e) do {*error = Str_dup(e); goto error;} while (0)
         URL_T url = Connection_getURL(delegator);
-#if MYSQL_VERSION_ID < 80034
-        bool yes = 1;
-#endif
         int connectTimeout = SQL_DEFAULT_TIMEOUT / MSEC_PER_SEC;
         unsigned long clientFlags = CLIENT_MULTI_STATEMENTS;
         MYSQL *db = mysql_init(NULL);
@@ -155,7 +152,10 @@ static MYSQL *_doConnect(Connection_T delegator, char **error) {
         if (charset)
                 mysql_options(db, MYSQL_SET_CHARSET_NAME, charset);
 #if MYSQL_VERSION_ID < 80034
-        mysql_options(db, MYSQL_OPT_RECONNECT, &yes);
+        // Explicitly disable auto-reconnect for safety (transaction/session state)
+        // In MySQL 8.0.34+, reconnect is removed and disabled by default
+        bool reconnect = false;
+        mysql_options(db, MYSQL_OPT_RECONNECT, &reconnect);
 #endif
         // Set Connection ResultSet fetch size if found in URL
         const char *fetchSize = URL_getParameter(url, "fetch-size");

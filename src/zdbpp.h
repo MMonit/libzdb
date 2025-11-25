@@ -1765,13 +1765,9 @@ namespace zdb {
      *
      * The pool is designed to dynamically manage the number of active connections
      * based on usage patterns. A `reaper` thread is automatically started when the
-     * pool is initialized, performing two functions:
-     *
-     * 1. Sweep through the pool at regular intervals (default every 60 seconds)
-     *    to close connections that have been inactive for a specified time (default
-     *    90 seconds).
-     * 2. Perform periodic validation (ping test) on idle connections to ensure
-     *    they remain valid and responsive.
+     * pool is initialized to sweep through the pool at regular intervals (default
+     * every 60 seconds) and close connections that have been inactive for a specified
+     * time (default 90 seconds).
      *
      * ## Realtime inspection:
      *
@@ -1945,8 +1941,8 @@ namespace zdb {
          *
          * The reaper thread closes inactive Connections in the pool, down to the
          * initial connection count. An inactive Connection is closed if its
-         * `connectionTimeout` has expired or if it fails a ping test. Active
-         * Connections (those in current use) are never closed by this thread.
+         * `connectionTimeout` has expired. Active Connections (those in current use)
+         * are never closed by this thread.
          *
          * This method can be called before or after ConnectionPool::start(). If
          * called after start, the changes will take effect on the next sweep cycle.

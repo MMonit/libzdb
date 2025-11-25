@@ -16,11 +16,17 @@ Version 3.4.2
   Connection_commit(), or Connection_rollback() functions failed
   (e.g., due to an offline database), and an exception was thrown,
   the exception description contained either "Unknown error" or "?".
-* Fixed: PostgreSQL: Fix the Connection_ping(). It relied solely on local
+* Fixed: PostgreSQL: Fix Connection_ping(). It relied solely on local
   status and couldn't detect whether the server had failed or recovered.
+* Fixed: MySQL: Explicitly disable auto-reconnect due to its unsafe
+  handling of transactions and session state. This also makes
+  Connection_ping() fail fast. The connection pool handles server
+  recovery by creating new connections when needed.
 * Fixed: memory corruption when libzdb is used in a multi-threaded
   application, the database is down, connection pool empty and two threads
   are trying to call ConnectionPool_getConnection().
+* Fixed: Eliminated potential lock contention in the connection pool
+  reaper thread by removing periodic ping tests on idle connections.
 
 Version 3.4.1
 -------------

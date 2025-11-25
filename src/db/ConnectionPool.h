@@ -210,16 +210,9 @@
  *
  * The pool is designed to dynamically manage the number of active connections
  * based on usage patterns. A `reaper` thread is automatically started when the
- * pool is initialized, performing two functions:
- *
- * 1. Sweep through the pool at regular intervals (default every 60 seconds)
- *    to close connections that have been inactive for a specified time (default
- *    90 seconds).
- * 2. Perform periodic validation (ping test) on idle connections to ensure
- *    they remain valid and responsive.
- *
- * This dual functionality helps maintain the pool's health by removing stale
- * connections and verifying the validity of idle ones.
+ * pool is initialized to sweep through the pool at regular intervals (default
+ * every 60 seconds) and close connections that have been inactive for a
+ * specified time (default 90 seconds).
  *
  * Only inactive connections will be closed, and no more than the initial number
  * of connections the pool was started with are closed. The property method,
@@ -412,12 +405,12 @@ void ConnectionPool_setAbortHandler(T P, void(*abortHandler)(const char *error))
  * initialized, with a default sweep interval of 60 seconds. This method
  * allows you to change the sweep interval or disable the reaper entirely.
  *
- * The reaper thread closes inactive Connections in the pool, down to the 
+ * The reaper thread closes inactive Connections in the pool, down to the
  * initial connection count. An inactive Connection is closed if its
- * `connectionTimeout` has expired or if it fails the ping test. Active
- * Connections (those in current use) are never closed by this thread.
+ * `connectionTimeout` has expired. Active Connections (those in current use)
+ * are never closed by this thread.
  *
- * This method can be called before or after ConnectionPool_start(). If 
+ * This method can be called before or after ConnectionPool_start(). If
  * called after start, the changes will take effect on the next sweep cycle.
  *
  * @param P A ConnectionPool object
@@ -556,14 +549,12 @@ void ConnectionPool_returnConnection(T P, Connection_T connection);
  * @brief Reaps inactive connections in the pool.
  *
  * An inactive Connection is closed if and only if its `connectionTimeout` has
- * expired *or* if the Connection failed the ping test against the database.
- * Active Connections are *not* closed by this method.
+ * expired. Active Connections are *not* closed by this method. 
  *
  * @param P A ConnectionPool object
  * @return The number of Connections that were closed
  * @see ConnectionPool_setConnectionTimeout
  * @see ConnectionPool_setInitialConnections
- * @see Connection_ping
  */
 int ConnectionPool_reapConnections(T P);
 
