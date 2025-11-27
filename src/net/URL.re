@@ -30,6 +30,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <limits.h>
+#include <ctype.h>
+#include <sys/types.h>
 
 #include "URL.h"
 
@@ -54,22 +56,21 @@ typedef struct param_t {
 #define T URL_T
 struct URL_S {
         bool ip6;
-	int port;
-       	char *ref;
-	char *path;
-	char *host;
-	char *user;
-        char *qptr;
-	char *query;
-	char *portStr;
-	char *protocol;
-	char *password;
-	char *toString;
+        int port;
+        char *ref;
+        char *path;
+        char *host;
+        char *user;
+        char *query;
+        char *portStr;
+        char *protocol;
+        char *password;
+        char *toString;
         param_t params;
         char **paramNames;
-	uchar_t *data;
-	uchar_t *buffer;
-	uchar_t *marker, *ctx, *limit, *token;
+        uchar_t *data;
+        uchar_t *yycursor;
+        uchar_t *yymarker, *yyctx, *yylimit, *yytoken;
         /* Keep the above align with zild URL_T */
 };
 
@@ -94,10 +95,7 @@ static const uchar_t urlunsafe[256] = {
 };
 
 #define UNKNOWN_PORT -1
-#define YYCURSOR     U->buffer
-#define YYLIMIT      U->limit
-#define YYTOKEN      U->token
-#define SET_PROTOCOL(PORT) *(YYCURSOR-3)=0; U->protocol=U->token; U->port=PORT; goto authority
+#define SET_PROTOCOL(PORT) *(U->yycursor-3)=0; U->protocol=U->yytoken; U->port=PORT; goto authority
 
 
 /* ------------------------------------------------------- Private methods */
@@ -107,18 +105,20 @@ static bool _parseURL(T U) {
         param_t param = NULL;
 	/*!re2c
          re2c:define:YYCTYPE      = "unsigned char";
-         re2c:define:YYCURSOR     = U->buffer;
-         re2c:define:YYLIMIT      = U->limit;
-         re2c:define:YYMARKER     = U->marker;
-         re2c:define:YYCTXMARKER  = U->ctx;
+         re2c:define:YYCURSOR     = U->yycursor;
+         re2c:define:YYLIMIT      = U->yylimit;
+         re2c:define:YYMARKER     = U->yymarker;
+         re2c:define:YYCTXMARKER  = U->yyctx;
          re2c:yyfill:enable       = 0;
+         re2c:eof                 = 0;
+         re2c:flags:case-insensitive = 1;
 
          ws                       = [ \t\r\n];
          any		          = [\000-\377];
          protocol                 = [a-zA-Z0-9]+"://";
-         auth                     = ([\040-\077\101-\132\134\136-\377])+[@];
+         auth                     = ([\040-\377]\[@\]])+[@];
          host                     = ([a-zA-Z0-9\-]+)([.]([a-zA-Z0-9\-]+))*;
-         host6                    = '[' [0-9a-zA-Z:%]+ ']';
+         host6                    = '[' [0-9a-zA-Z.:%\-]+ ']';
          port                     = [:][0-9]+;
          path                     = [/]([\041-\377]\[?#;])*;
          query                    = ([\040-\377]\[#])*;
@@ -126,11 +126,15 @@ static bool _parseURL(T U) {
          parametervalue           = ([\040-\377]\[&])*;
 	*/
 proto:
-	if (YYCURSOR >= YYLIMIT)
-		return false;
-	YYTOKEN = YYCURSOR;
+        if (U->yycursor >= U->yylimit)
+                return false;
+        U->yytoken = U->yycursor;
 	/*!re2c
-         ws         
+         $
+         {
+                return false;
+         }
+         ws
          {
                 goto proto;
          }
@@ -156,18 +160,22 @@ proto:
          }
 	*/
 authority:
-	if (YYCURSOR >= YYLIMIT)
-		return true;
-	YYTOKEN = YYCURSOR;
+        if (U->yycursor >= U->yylimit)
+                return true;
+        U->yytoken = U->yycursor;
 	/*!re2c
-         ws         
+         $
+         {
+                return true;
+         }
+         ws
          {
                 goto authority;
          }
          auth       
          {
-                *(YYCURSOR - 1) = 0;
-                U->user = YYTOKEN;
+                *(U->yycursor - 1) = 0;
+                U->user = U->yytoken;
                 char *p = strchr(U->user, ':');
                 if (p) {
                         *(p++) = 0;
@@ -179,30 +187,30 @@ authority:
          host6
          {
                 U->ip6 = true;
-                U->host = Str_ndup(YYTOKEN + 1, (int)(YYCURSOR - YYTOKEN - 2));
+                U->host = Str_ndup(U->yytoken + 1, (int)(U->yycursor - U->yytoken - 2));
                 goto authority;
          }
          host
          {
-                U->host = Str_ndup(YYTOKEN, (int)(YYCURSOR - YYTOKEN));
+                U->host = Str_ndup(U->yytoken, (int)(U->yycursor - U->yytoken));
                 goto authority;
          }
          port
          {
-                U->portStr = YYTOKEN + 1; // read past ':'
+                U->portStr = U->yytoken + 1; // read past ':'
                 U->port = Str_parseInt(U->portStr);
                 goto authority;
          }
          path       
          {
-                *YYCURSOR = 0;
-                U->path = URL_unescape(YYTOKEN);
+                *U->yycursor = 0;
+                U->path = URL_unescape(U->yytoken);
                 return true;
          }
          path[?]    
          {
-                *(YYCURSOR-1) = 0;
-                U->path = URL_unescape(YYTOKEN);
+                *(U->yycursor - 1) = 0;
+                U->path = URL_unescape(U->yytoken);
                 goto query;
          }
          any         
@@ -211,15 +219,19 @@ authority:
          }
 	*/
 query:
-        if (YYCURSOR >= YYLIMIT)
-		return true;
-	YYTOKEN =  YYCURSOR;
+        if (U->yycursor >= U->yylimit)
+                return true;
+        U->yytoken = U->yycursor;
 	/*!re2c
-         query      
+         $
          {
-                *YYCURSOR = 0;
-                U->query = Str_ndup(YYTOKEN, (int)(YYCURSOR - YYTOKEN));
-                YYCURSOR = YYTOKEN; // backtrack to start of query string after terminating it and
+                return true;
+         }
+         query
+         {
+                *U->yycursor = 0;
+                U->query = Str_ndup(U->yytoken, (int)(U->yycursor - U->yytoken));
+                U->yycursor = U->yytoken; // backtrack to start of query string after terminating it and
                 goto params;
          }
          any        
@@ -228,26 +240,30 @@ query:
          }
 	*/
 params:
-	if (YYCURSOR >= YYLIMIT)
-		return true;
-	YYTOKEN =  YYCURSOR;
+        if (U->yycursor >= U->yylimit)
+                return true;
+        U->yytoken = U->yycursor;
 	/*!re2c
-         parameterkey/[=] 
+         $
+         {
+                return true;
+         }
+         parameterkey/[=]
          {
                 NEW(param);
-                param->name = YYTOKEN;
+                param->name = U->yytoken;
                 param->next = U->params;
                 U->params = param;
                 goto params;
          }
          [=]parametervalue[&]?
          {
-                *YYTOKEN++ = 0;
-                if (*(YYCURSOR - 1) == '&')
-                        *(YYCURSOR - 1) = 0;
+                *U->yytoken++ = 0;
+                if (*(U->yycursor - 1) == '&')
+                        *(U->yycursor - 1) = 0;
                 if (! param) // format error
                         return true; 
-                param->value = URL_unescape(YYTOKEN);
+                param->value = URL_unescape(U->yytoken);
                 goto params;
          }
          any 
@@ -289,9 +305,9 @@ static T _ctor(uchar_t *data) {
         T U;
 	NEW(U);
 	U->data = data;
-	YYCURSOR = U->data;
+	U->yycursor = U->data;
 	U->port = UNKNOWN_PORT;
-	YYLIMIT = U->data + strlen(U->data);
+	U->yylimit = U->data + strlen(U->data);
 	if (! _parseURL(U))
                 URL_free(&U);
 	return U;
@@ -409,7 +425,7 @@ const char *URL_getParameter(T U, const char *name) {
 const char *URL_toString(T U) {
 	assert(U);
 	if (! U->toString) {
-                uchar_t port[11] = {};
+                char port[11] = {};
                 if (U->portStr) // port seen in URL
                         snprintf(port, 10, ":%d", U->port);
 		U->toString = Str_cat("%s://%s%s%s%s%s%s%s%s%s%s%s",
@@ -440,7 +456,7 @@ char *URL_unescape(char *url) {
                         if ((url[x] = url[y]) == '+')
                                 url[x] = ' ';
                         else if (url[x] == '%') {
-                                if (! (url[y + 1] && url[y + 2]))
+                                if (! (isxdigit(url[y + 1]) && isxdigit(url[y + 2])))
                                         break;
                                 url[x] = _x2b(url + y + 1);
                                 y += 2;
