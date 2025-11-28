@@ -149,10 +149,7 @@ T StringBuffer_append(T S, const char *s, ...) {
 T StringBuffer_vappend(T S, const char *s, va_list ap) {
         assert(S);
         if (STR_DEF(s)) {
-                va_list ap_copy;
-                va_copy(ap_copy, ap);
-                _append(S, s, ap_copy);
-                va_end(ap_copy);
+                _append(S, s, ap);
         }
         return S;
 }
@@ -218,18 +215,23 @@ int StringBuffer_prepare4oracle(T S) {
 
 T StringBuffer_trim(T S) {
         assert(S);
+        if (S->used == 0)
+                return S;
         // Right trim
-        if (S->used > 0) {
-                while (isspace(S->buffer[S->used - 1]))
-                        S->buffer[--S->used] = 0;
+        uchar_t *end = S->buffer + S->used - 1;
+        if (isspace(*end)) {
+                while (end >= S->buffer && isspace(*end))
+                        end--;
+                S->used = (int)(end - S->buffer) + 1;
+                S->buffer[S->used] = 0;
         }
         // Left trim
-        if (isspace(*S->buffer)) {
-                int i = 0;
-                while (isspace(S->buffer[i])) i++;
-                memmove(S->buffer, S->buffer + i, S->used - i);
-                S->used -= i;
-                S->buffer[S->used] = 0;
+        if (S->used > 0 && isspace(*S->buffer)) {
+                uchar_t *start = S->buffer + 1;
+                while (isspace(*start)) start++;
+                int shift = (int)(start - S->buffer);
+                S->used -= shift;
+                memmove(S->buffer, start, S->used + 1);
         }
         return S;
 }
