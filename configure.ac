@@ -111,6 +111,17 @@ if test "x$RE2C" = "xno"; then
         if test ! -f src/net/URL.c -a ! -f src/system/Time.c; then
                 AC_MSG_ERROR([Libzdb require re2c. Download re2c from http://re2c.org/ or use your package manager])
         fi
+else
+        # Check re2c version (require >= 3.0)
+        AC_MSG_CHECKING([re2c version])
+        RE2C_VERSION=$($RE2C --version | sed 's/.*\([[0-9]][[0-9]]*\.[[0-9]][[0-9]]*\).*/\1/')
+        AC_MSG_RESULT([$RE2C_VERSION])
+        
+        RE2C_MAJOR=$(echo $RE2C_VERSION | cut -d. -f1)
+        
+        if test "$RE2C_MAJOR" -lt 3; then
+                AC_MSG_ERROR([re2c version >= 3.0 required (found $RE2C_VERSION)])
+        fi
 fi
 AC_PROG_LEX([noyywrap])
 if test -z "${LEXLIB+set}"; then
