@@ -69,29 +69,38 @@ static inline void _append(T S, const char *s, va_list ap) {
 }
 
 
-/* Replace all occurences of ? in this string buffer with prefix[1..99] */
+// Replace all occurences of ? in this string buffer with prefix[1..99]
 static int _prepare(T S, char prefix) {
         int n, i;
         for (n = i = 0; S->buffer[i]; i++) if (S->buffer[i] == '?') n++;
         if (n > 99)
                 THROW(SQLException, "Max 99 parameters are allowed in a prepared statement. Found %d parameters in statement", n);
         else if (n) {
-                int j, xl;
-                char x[3] = {prefix};
-                int required = (n * 2) + S->used;
-                if (required >= S->length) {
-                        S->length = required;
+                int extra = (n <= 9) ? n : (2 * n - 9);
+                int new_used = S->used + extra;
+                if (new_used >= S->length) {
+                        S->length = new_used + 1;
                         RESIZE(S->buffer, S->length);
                 }
-                for (i = 0, j = 1; (j <= n); i++) {
-                        if (S->buffer[i] == '?') {
-                                if(j<10){xl=2;x[1]=j+'0';}else{xl=3;x[1]=(j/10)+'0';x[2]=(j%10)+'0';}
-                                memmove(S->buffer + i + xl, S->buffer + i + 1, (S->used - (i + 1)));
-                                memmove(S->buffer + i, x, xl);
-                                S->used += xl - 1;
-                                j++;
+                int r = S->used - 1;
+                int w = new_used - 1;
+                int j = n;
+                while (r >= 0) {
+                        if (S->buffer[r] == '?') {
+                                if (j >= 10) {
+                                        S->buffer[w--] = '0' + (j % 10);
+                                        S->buffer[w--] = '0' + (j / 10);
+                                } else {
+                                        S->buffer[w--] = '0' + j;
+                                }
+                                S->buffer[w--] = prefix;
+                                j--;
+                        } else {
+                                S->buffer[w--] = S->buffer[r];
                         }
+                        r--;
                 }
+                S->used = new_used;
                 S->buffer[S->used] = 0;
         }
         return n;
@@ -148,9 +157,8 @@ T StringBuffer_append(T S, const char *s, ...) {
 
 T StringBuffer_vappend(T S, const char *s, va_list ap) {
         assert(S);
-        if (STR_DEF(s)) {
+        if (STR_DEF(s))
                 _append(S, s, ap);
-        }
         return S;
 }
 
@@ -171,12 +179,8 @@ T StringBuffer_set(T S, const char *s, ...) {
 T StringBuffer_vset(T S, const char *s, va_list ap) {
 	assert(S);
         StringBuffer_clear(S);
-        if (STR_DEF(s)) {
-                va_list ap_copy;
-                va_copy(ap_copy, ap);
-                _append(S, s, ap_copy);
-                va_end(ap_copy);
-        }
+        if (STR_DEF(s))
+                _append(S, s, ap);
         return S;
 }
 
