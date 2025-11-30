@@ -185,13 +185,6 @@ struct tm *Time_toDateTime(const char *s, struct tm *t) {
         bool have_date = false, have_time = false;
         const char *yylimit = s + strlen(s), *yymarker, *yytoken, *yycursor = s;
 	while (true) {
-		if (yycursor >= yylimit) {
-                        if (have_date || have_time) {
-                                *(struct tm*)t = tm;
-                                return t;
-                        }
-                        THROW(SQLException, "Invalid date or time");
-                }
                 yytoken = yycursor;
                 /*!re2c
                  re2c:define:YYCTYPE         = "unsigned char";
@@ -202,16 +195,20 @@ struct tm *Time_toDateTime(const char *s, struct tm *t) {
                  re2c:eof                    = 0;
                  re2c:flags:case-insensitive = 1;
                  
-                 any  = [\000-\377];
-                 x    = [^0-9];
-                 dd   = [0-9][0-9];
-                 yyyy = [0-9]{4};
-                 tz   = [-+]dd(.? dd)?;
-                 frac = [.,][0-9]+;
-                 mmm  = ("jan"|"feb"|"mar"|"apr"|"may"|"jun"|"jul"|"aug"|"sep"|"oct"|"nov"|"dec");
+                 any                         = [\000-\377];
+                 x                           = [^0-9];
+                 dd                          = [0-9][0-9];
+                 yyyy                        = [0-9]{4};
+                 tz                          = [-+]dd(.? dd)?;
+                 frac                        = [.,][0-9]+;
+                 mmm                         = ("jan"|"feb"|"mar"|"apr"|"may"|"jun"|"jul"|"aug"|"sep"|"oct"|"nov"|"dec");
 
                  $
                  { // EOF
+                        if (have_date || have_time) {
+                                *t = tm;
+                                return t;
+                        }
                         THROW(SQLException, "Invalid date or time");
                  }
 

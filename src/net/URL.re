@@ -126,8 +126,6 @@ static bool _parseURL(T U) {
          parametervalue           = ([\040-\377]\[&])*;
 	*/
 proto:
-        if (U->yycursor >= U->yylimit)
-                return false;
         U->yytoken = U->yycursor;
 	/*!re2c
          $
@@ -160,8 +158,6 @@ proto:
          }
 	*/
 authority:
-        if (U->yycursor >= U->yylimit)
-                return true;
         U->yytoken = U->yycursor;
 	/*!re2c
          $
@@ -219,8 +215,6 @@ authority:
          }
 	*/
 query:
-        if (U->yycursor >= U->yylimit)
-                return true;
         U->yytoken = U->yycursor;
 	/*!re2c
          $
@@ -240,8 +234,6 @@ query:
          }
 	*/
 params:
-        if (U->yycursor >= U->yylimit)
-                return true;
         U->yytoken = U->yycursor;
 	/*!re2c
          $
