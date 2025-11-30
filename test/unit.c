@@ -90,7 +90,7 @@ static void testStr(void) {
                 assert(! Str_startsWith(NULL, "mysql"));
                 assert(! Str_startsWith("", NULL));
                 assert(! Str_startsWith(NULL, NULL));
-                assert(Str_startsWith("", ""));
+                assert(!Str_startsWith("", ""));
         }
         printf("=> Test5: OK\n\n");
         
