@@ -48,7 +48,7 @@ static inline bool _is_equals_ci(const char *s, const char *literal) {
                 if (literal[i] == 0) {
                         return s[i] == 0 || isspace((uchar_t)s[i]);
                 }
-                if (tolower((uchar_t)s[i]) != tolower((uchar_t)literal[i])) {
+                if (tolower((uchar_t)s[i]) != literal[i]) { // literal already lowercase
                         return false;
                 }
         }
@@ -63,52 +63,34 @@ static inline bool _is_equals_ci(const char *s, const char *literal) {
 #endif
 
 bool Str_isEqual(const char *a, const char *b) {
-	if (a && b) { 
-                while (*a && *b)
-                        if (toupper((uchar_t)*a++) != toupper((uchar_t)*b++)) return false;
-                return (*a == *b);
-        }
+        if (a && b)
+                return (strcasecmp(a, b) == 0);
         return false;
 }
 
 
 bool Str_isByteEqual(const char *a, const char *b) {
-	if (a && b) {
-                while (*a && *b)
-                        if (*a++ != *b++) return false;
-                return (*a == *b);
-        }
+        if (a && b)
+                return (__builtin_strcmp(a, b) == 0);
         return false;
 }
 
 
 bool Str_startsWith(const char *a, const char *b) {
-        if (a && b) {
-                do {
-                        if (*a != *b)
-                                return false;
-                        if (*a++ == 0 || *b++ == 0)
-                                break;
-                } while (*b);
-                return true;
-        }
-        return false;
+        if (!STR_DEF(a) || !STR_DEF(b))
+                return false;
+        size_t b_len = strlen(b);
+        return strncasecmp(a, b, b_len) == 0;
 }
 
 
 char *Str_sub(const char *a, const char *b) {
-        if (a && STR_DEF(b)) {
-                while (*a) {
-                        if (toupper((uchar_t)*a) == toupper((uchar_t)*b)) {
-                                const char* ap = a;
-                                const char* bp = b;
-                                do
-                                        if (! *bp)
-                                                return (char*)a;
-                                while ((uchar_t)toupper(*ap++) == toupper((uchar_t)*bp++));
-                        }
-                        a++;
-                }
+        if (!a || !STR_DEF(b))
+                return NULL;
+        size_t b_len = strlen(b);
+        for (; *a; a++) {
+                if (strncasecmp(a, b, b_len) == 0)
+                        return (char *)a;
         }
         return NULL;
 }
