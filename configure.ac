@@ -70,13 +70,16 @@ CFLAGS="$CFLAGS -Wno-pointer-sign";
 # enable fortification level 2
 CFLAGS="$CFLAGS -D_FORTIFY_SOURCE=2"
 
-# Require C11 and use C17 if available
+# Require C11 and use the latest available (C23 > C17 > C11)
 AC_COMPUTE_INT([STDC_VERSION],[__STDC_VERSION__],,[STDC_VERSION=0])
-AS_IF([test "$STDC_VERSION" -ge 201710],
-    [CFLAGS="$CFLAGS -std=c17"],
-    [AS_IF([test "$STDC_VERSION" -ge 201112],
-        [CFLAGS="$CFLAGS -std=c11"],
-        [AC_MSG_ERROR([Your compiler does not support C11 or later])]
+AS_IF([test "$STDC_VERSION" -ge 202311],
+    [CFLAGS="$CFLAGS -std=c23"],
+    [AS_IF([test "$STDC_VERSION" -ge 201710],
+        [CFLAGS="$CFLAGS -std=c17"],
+        [AS_IF([test "$STDC_VERSION" -ge 201112],
+            [CFLAGS="$CFLAGS -std=c11"],
+            [AC_MSG_ERROR([Your compiler does not support C11 or later])]
+        )]
     )]
 )
 
