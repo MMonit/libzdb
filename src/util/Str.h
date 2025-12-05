@@ -75,10 +75,20 @@ bool Str_isByteEqual(const char *a, const char *b);
 
 
 /**
- * Returns true if the string <i>a</i> starts with the sub-string
- * <i>b</i>. The test is <i>case-sensitive</i>.
- * @param a The string to search for b in
- * @param b The <i>sub-string</i> to test a against
+ * Returns true if `a` starts with `b`. The test is *case-insensitive*
+ * but depends on all characters in the two strings being translatable
+ * in the current locale.
+ *
+ * `b` is assumed to be the substring of `a`. This means that if `a` is
+ * shorter than `b`, this method returns false.
+ *
+ * If either `a` or `b` is NULL or the empty string, this method returns
+ * false. Technically, the empty string is a prefix of every string, but
+ * this function is designed to be used as a guard where `b` must represent
+ * a meaningful value.
+ *
+ * @param a The string to search for `b` in
+ * @param b The sub-string to test `a` against
  * @return true if a starts with b, otherwise false
  */
 bool Str_startsWith(const char *a, const char *b);
