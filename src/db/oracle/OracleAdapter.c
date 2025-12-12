@@ -54,7 +54,7 @@ static char * get_err_buffer(void) {
 }
 
 /* Allocate the key */
-static void error_msg_key_alloc() {
+static void error_msg_key_alloc(void) {
         ThreadData_create(error_msg_key, free);
 }
 

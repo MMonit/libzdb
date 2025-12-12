@@ -354,6 +354,15 @@ static const char *_getLastError(T C) {
 }
 
 
+static int _getLastErrorCode(T C) {
+        assert(C);
+        int error = mysql_errno(C->db);
+        if (error == 0)
+                return C->lastError;
+        return error;
+}
+
+
 /* ------------------------------------------------------------------------- */
 
 
@@ -371,6 +380,7 @@ const struct Cop_T mysqlcops = {
         .execute	        = _execute,
         .executeQuery           = _executeQuery,
         .prepareStatement       = _prepareStatement,
-        .getLastError           = _getLastError
+        .getLastError           = _getLastError,
+        .getLastErrorCode       = _getLastErrorCode
 };
 

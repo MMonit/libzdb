@@ -53,6 +53,7 @@ typedef struct Cop_T {
         ResultSet_T (*executeQuery)(T C, const char *sql, va_list ap);
         PreparedStatement_T (*prepareStatement)(T C, const char *sql, va_list ap);
         const char *(*getLastError)(T C);
+        int (*getLastErrorCode)(T C);
 } *Cop_T;
 
 #undef T

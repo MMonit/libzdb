@@ -126,6 +126,13 @@ static void _freePrepared(T C) {
 }
 
 
+static int _getLastErrorCode(T C) {
+        if (C->op->getLastErrorCode)
+                return C->op->getLastErrorCode(C->D);
+        return 0;
+}
+
+
 /* ----------------------------------------------------- Protected methods */
 
 
@@ -262,8 +269,9 @@ void Connection_beginTransaction(T C) {
 
 void Connection_beginTransactionType(T C, TRANSACTION_TYPE type) {
         assert(C);
-        if (! C->op->beginTransactionType(C->D, type))
-                THROW(SQLException, "%s", Connection_getLastError(C));
+        if (! C->op->beginTransactionType(C->D, type)) {
+                THROW_SQL(_getLastErrorCode(C), "%s", Connection_getLastError(C));
+        }
         C->inTransaction++;
 }
 
@@ -279,8 +287,9 @@ void Connection_commit(T C) {
         if (C->inTransaction)
                 C->inTransaction = 0;
         // Even if we are not in a transaction, call the delegate anyway and propagate any errors
-        if (! C->op->commit(C->D))
-                THROW(SQLException, "%s", Connection_getLastError(C));
+        if (! C->op->commit(C->D)) {
+                THROW_SQL(_getLastErrorCode(C), "%s", Connection_getLastError(C));
+        }
 }
 
 
@@ -292,8 +301,9 @@ void Connection_rollback(T C) {
                 C->inTransaction = 0;
         }
         // Even if we are not in a transaction, call the delegate anyway and propagate any errors
-        if (! C->op->rollback(C->D))
-                THROW(SQLException, "%s", Connection_getLastError(C));
+        if (! C->op->rollback(C->D)) {
+                THROW_SQL(_getLastErrorCode(C), "%s", Connection_getLastError(C));
+        }
 }
 
 
@@ -318,7 +328,9 @@ void Connection_execute(T C, const char *sql, ...) {
         va_start(ap, sql);
         bool success = C->op->execute(C->D, sql, ap);
         va_end(ap);
-        if (! success) THROW(SQLException, "%s", Connection_getLastError(C));
+        if (! success) {
+                THROW_SQL(_getLastErrorCode(C), "%s", Connection_getLastError(C));
+        }
 }
 
 
@@ -331,8 +343,9 @@ ResultSet_T Connection_executeQuery(T C, const char *sql, ...) {
         va_start(ap, sql);
         C->resultSet = C->op->executeQuery(C->D, sql, ap);
         va_end(ap);
-        if (! C->resultSet)
-                THROW(SQLException, "%s", Connection_getLastError(C));
+        if (! C->resultSet) {
+                THROW_SQL(_getLastErrorCode(C), "%s", Connection_getLastError(C));
+        }
         return C->resultSet;
 }
 
@@ -344,10 +357,11 @@ PreparedStatement_T Connection_prepareStatement(T C, const char *sql, ...) {
         va_start(ap, sql);
         PreparedStatement_T p = C->op->prepareStatement(C->D, sql, ap);
         va_end(ap);
-        if (p)
+        if (p) {
                 Vector_push(C->prepared, p);
-        else
-                THROW(SQLException, "%s", Connection_getLastError(C));
+        } else {
+                THROW_SQL(_getLastErrorCode(C), "%s", Connection_getLastError(C));
+        }
         return p;
 }
 

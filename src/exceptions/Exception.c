@@ -77,6 +77,7 @@ static void init_once(void) { ThreadData_create(Exception_stack, NULL); }
 #endif
 
 void Exception_init(void) { Thread_once(once_control, init_once); }
+void Exception_reset(void) { ThreadData_set(Exception_stack, NULL); }
 
 #ifdef PACKAGE_PROTECTED
 #pragma GCC visibility pop
@@ -86,14 +87,9 @@ void Exception_init(void) { Thread_once(once_control, init_once); }
 /* -------------------------------------------------------- Public methods */
 
 
-void Exception_reset(void) {
-        ThreadData_set(Exception_stack, NULL);
-}
-
-
 #ifndef ZILD_PACKAGE_PROTECTED
 
-void Exception_throw(const T *e, const char *func, const char *file, int line, const char *message) {
+void Exception_throw(const T *e, int errorCode, const char *func, const char *file, int line, const char *message) {
         Exception_Frame *p = ThreadData_get(Exception_stack);
         assert(e);
         if (p) {
@@ -101,9 +97,10 @@ void Exception_throw(const T *e, const char *func, const char *file, int line, c
                 p->func = func;
                 p->file = file;
                 p->line = line;
+                p->errorCode = errorCode;
                 if (message)
                         Str_copy(p->message, message, EXCEPTION_MESSAGE_LENGTH);
-                pop_Exception_stack;
+                pop_exception_stack;
                 siglongjmp(p->env, Exception_thrown);
         } else if (message) {
                 ABORT("%s: %s\n raised in %s at %s:%d\n", e->name, message,
@@ -114,16 +111,16 @@ void Exception_throw(const T *e, const char *func, const char *file, int line, c
         }
 }
 
-void Exception_vthrow(const T *e, const char *func, const char *file, int line, const char *cause, ...) {
+void Exception_vthrow(const T *e, int errorCode, const char *func, const char *file, int line, const char *cause, ...) {
         char message[EXCEPTION_MESSAGE_LENGTH + 1];
         if (cause) {
                 va_list ap;
                 va_start(ap, cause);
                 vsnprintf(message, EXCEPTION_MESSAGE_LENGTH, cause, ap);
                 va_end(ap);
-                Exception_throw(e, func, file, line, message);
+                Exception_throw(e, errorCode, func, file, line, message);
         } else {
-                Exception_throw(e, func, file, line, NULL);
+                Exception_throw(e, errorCode, func, file, line, NULL);
         }
 }
 

@@ -446,7 +446,7 @@ static void testPool(const char *testURL) {
                 CATCH(SQLException)
                 {
                         printf("\tResult: prepare statement failed -- %s\n", Exception_frame.message);
-                        assert(false);
+                        assert(false); // Should not fail
                 }
                 END_TRY;
                 TRY
@@ -484,6 +484,7 @@ static void testPool(const char *testURL) {
                 }
                 CATCH(SQLException)
                 {
+                        assert(Exception_frame.errorCode != 0);
                         Connection_close(con);
                 }
                 END_TRY;
@@ -497,6 +498,7 @@ static void testPool(const char *testURL) {
                 }
                 CATCH(SQLException)
                 {
+                        assert(Exception_frame.errorCode != 0);
                         printf("ok\n");
                         Connection_close(con);
                 }
@@ -513,6 +515,7 @@ static void testPool(const char *testURL) {
                 }
                 CATCH(SQLException)
                 {
+                        assert(Exception_frame.errorCode != 0);
                         printf("ok\n");
                         Connection_close(con);
                 }
@@ -535,6 +538,7 @@ static void testPool(const char *testURL) {
                 }
                 CATCH(SQLException)
                 {
+                        assert(Exception_frame.errorCode == 0); // API error, not a database error
                         printf("ok\n");
                         Connection_close(con);
                 }
@@ -553,6 +557,7 @@ static void testPool(const char *testURL) {
                 }
                 CATCH(SQLException)
                 {
+                        assert(Exception_frame.errorCode == 0); // API error, not a database error
                         printf("ok\n");
                         Connection_close(con);
                 }
@@ -568,10 +573,30 @@ static void testPool(const char *testURL) {
                 }
                 CATCH(SQLException)
                 {
+                        assert(Exception_frame.errorCode == 0); // API error, not a database error
                         printf("ok\n");
                 }
                 FINALLY
                 {
+                        Connection_close(con);
+                }
+                END_TRY;
+                TRY
+                {
+                        assert((con = ConnectionPool_getConnection(pool)));
+                        printf("\tTesting: select from non-existing table.. ");
+                        result = Connection_executeQuery(con, "select name from X;");
+                        while (ResultSet_next(result)) {
+                                const char *name = ResultSet_getStringByName(result, "nonexistingcolumnname");
+                                printf("%s", name);
+                                printf("\tResult: Test failed -- exception not thrown\n");
+                                exit(1);
+                        }
+                }
+                CATCH(SQLException)
+                {
+                        assert(Exception_frame.errorCode != 0);
+                        printf("ok\n");
                         Connection_close(con);
                 }
                 END_TRY;

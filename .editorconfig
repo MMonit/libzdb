@@ -13,6 +13,6 @@ trim_trailing_whitespace = true
 indent_style = tab
 
 # Override for C source files
-[*.{c,re,y,l}]
+[*.{c,re,y,l,h}]
 indent_size = 8
 tab_width = 8

@@ -172,8 +172,9 @@ static void _execute(T P) {
         PQclear(P->res);
         P->res = PQexecPrepared(P->db, P->stmt, P->parameterCount, (const char **)P->paramValues, P->paramLengths, P->paramFormats, 0);
         P->lastError = P->res ? PQresultStatus(P->res) : PGRES_FATAL_ERROR;
-        if (P->lastError != PGRES_COMMAND_OK)
-                THROW(SQLException, "%s", PQresultErrorMessage(P->res));
+        if (P->lastError != PGRES_COMMAND_OK) {
+                THROW_SQL(P->lastError, "%s", PQresultErrorMessage(P->res));
+        }
 }
 
 
@@ -184,7 +185,7 @@ static ResultSet_T _executeQuery(T P) {
         P->lastError = P->res ? PQresultStatus(P->res) : PGRES_FATAL_ERROR;
         if (P->lastError == PGRES_TUPLES_OK)
                 return ResultSet_new(PostgresqlResultSet_new(P->delegator, P->res), (Rop_T)&postgresqlrops);
-        THROW(SQLException, "%s", PQresultErrorMessage(P->res));
+        THROW_SQL(P->lastError, "%s", PQresultErrorMessage(P->res));
         return NULL;
 }
 

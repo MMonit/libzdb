@@ -149,8 +149,9 @@ static void _setString(T P, int parameterIndex, const char *x, int size) {
         }
         P->lastError = OCIBindByPos(P->stmt, &P->params[i].bind, P->err, parameterIndex, (char *)P->params[i].type.string,
                                     (int)P->params[i].length, SQLT_CHR, &P->params[i].is_null, 0, 0, 0, 0, OCI_DEFAULT);
-        if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO)
+        if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO) {
                 THROW(SQLException, "%s", OraclePreparedStatement_getLastError(P->lastError, P->err));
+        }
 }
 
 
@@ -163,8 +164,9 @@ static void _setTimestamp(T P, int parameterIndex, time_t time) {
         P->lastError = OCIDescriptorAlloc((dvoid *)P->env, (dvoid **) &(P->params[i].type.date),
                                           (ub4) OCI_DTYPE_TIMESTAMP,
                                           (size_t) 0, (dvoid **) 0);
-        if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO)
+        if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO) {
                 THROW(SQLException, "%s", OraclePreparedStatement_getLastError(P->lastError, P->err));
+        }
 
         gmtime_r(&time, &ts);
 
@@ -183,8 +185,9 @@ static void _setTimestamp(T P, int parameterIndex, time_t time) {
 
         P->lastError = OCIBindByPos(P->stmt, &P->params[i].bind, P->err, parameterIndex, &P->params[i].type.date, 
                                     P->params[i].length, SQLT_TIMESTAMP, 0, 0, 0, 0, 0, OCI_DEFAULT);
-        if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO)
+        if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO) {
                 THROW(SQLException, "%s", OraclePreparedStatement_getLastError(P->lastError, P->err));
+        }
 }
 
 
@@ -195,8 +198,9 @@ static void _setInt(T P, int parameterIndex, int x) {
         P->params[i].length = sizeof(x);
         P->lastError = OCIBindByPos(P->stmt, &P->params[i].bind, P->err, parameterIndex, &P->params[i].type.integer,
                                     (int)P->params[i].length, SQLT_INT, 0, 0, 0, 0, 0, OCI_DEFAULT);
-        if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO)
+        if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO) {
                 THROW(SQLException, "%s", OraclePreparedStatement_getLastError(P->lastError, P->err));
+        }
 }
 
 
@@ -253,11 +257,13 @@ static void _execute(T P) {
         }
         P->lastError = OCIStmtExecute(P->svc, P->stmt, P->err, 1, 0, NULL, NULL, OCI_DEFAULT);
         P->running = false;
-        if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO)
-                THROW(SQLException, "%s", OraclePreparedStatement_getLastError(P->lastError, P->err));
+        if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO) {
+                THROW_SQL(P->lastError, "%s", OraclePreparedStatement_getLastError(P->lastError, P->err));
+        }
         P->lastError = OCIAttrGet( P->stmt, OCI_HTYPE_STMT, &P->rowsChanged, 0, OCI_ATTR_ROW_COUNT, P->err);
-        if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO)
-                THROW(SQLException, "%s", OraclePreparedStatement_getLastError(P->lastError, P->err));
+        if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO) {
+                THROW_SQL(P->lastError, "%s", OraclePreparedStatement_getLastError(P->lastError, P->err));
+        }
 }
 
 
@@ -272,7 +278,7 @@ static ResultSet_T _executeQuery(T P) {
         P->running = false;
         if (P->lastError == OCI_SUCCESS || P->lastError == OCI_SUCCESS_WITH_INFO)
                 return ResultSet_new(OracleResultSet_new(P->delegator, P->stmt, P->env, P->usr, P->err, P->svc, false), (Rop_T)&oraclerops);
-        THROW(SQLException, "%s", OraclePreparedStatement_getLastError(P->lastError, P->err));
+        THROW_SQL(P->lastError, "%s", OraclePreparedStatement_getLastError(P->lastError, P->err));
         return NULL;
 }
 

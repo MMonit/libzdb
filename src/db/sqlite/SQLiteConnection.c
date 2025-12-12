@@ -273,6 +273,15 @@ static const char *_getLastError(T C) {
 }
 
 
+static int _getLastErrorCode(T C) {
+        assert(C);
+        int error = sqlite3_extended_errcode(C->db);
+        if (error == 0)
+                return C->lastError;
+        return error;
+}
+
+
 /* ------------------------------------------------------------------------- */
 
 
@@ -290,6 +299,7 @@ const struct Cop_T sqlite3cops = {
         .execute	        = _execute,
         .executeQuery	        = _executeQuery,
         .prepareStatement       = _prepareStatement,
-        .getLastError	        = _getLastError
+        .getLastError           = _getLastError,
+        .getLastErrorCode       = _getLastErrorCode
 };
 

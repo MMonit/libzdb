@@ -310,6 +310,12 @@ static const char *_getLastError(T C) {
 }
 
 
+static int _getLastErrorCode(T C) {
+        assert(C);
+        return C->lastError;
+}
+
+
 /* ------------------------------------------------------------------------- */
 
 
@@ -327,6 +333,7 @@ const struct Cop_T postgresqlcops = {
         .execute                = _execute,
         .executeQuery           = _executeQuery,
         .prepareStatement       = _prepareStatement,
-        .getLastError           = _getLastError
+        .getLastError           = _getLastError,
+        .getLastErrorCode       = _getLastErrorCode
 };
 

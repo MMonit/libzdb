@@ -188,15 +188,17 @@ static void _setBlob(T P, int parameterIndex, const void *x, int size) {
 static void _execute(T P) {
         assert(P);
         if (P->parameterCount > 0) {
-                if ((P->lastError = mysql_stmt_bind_param(P->stmt, P->bind)))
-                        THROW(SQLException, "%s", mysql_stmt_error(P->stmt));
+                if ((P->lastError = mysql_stmt_bind_param(P->stmt, P->bind))) {
+                        THROW_SQL(mysql_stmt_errno(P->stmt), "%s", mysql_stmt_error(P->stmt));
+                }
         }
 #if MYSQL_VERSION_ID >= 50002
         unsigned long cursor = CURSOR_TYPE_NO_CURSOR;
         mysql_stmt_attr_set(P->stmt, STMT_ATTR_CURSOR_TYPE, &cursor);
 #endif
-        if ((P->lastError = mysql_stmt_execute(P->stmt)))
-                THROW(SQLException, "%s", mysql_stmt_error(P->stmt));
+        if ((P->lastError = mysql_stmt_execute(P->stmt))) {
+                THROW_SQL(mysql_stmt_errno(P->stmt), "%s", mysql_stmt_error(P->stmt));
+        }
         if (P->lastError == MYSQL_OK) {
                 /* Discard prepared param data in client/server */
                 P->lastError = mysql_stmt_reset(P->stmt);
@@ -207,18 +209,20 @@ static void _execute(T P) {
 static ResultSet_T _executeQuery(T P) {
         assert(P);
         if (P->parameterCount > 0) {
-                if ((P->lastError = mysql_stmt_bind_param(P->stmt, P->bind)))
-                        THROW(SQLException, "%s", mysql_stmt_error(P->stmt));
+                if ((P->lastError = mysql_stmt_bind_param(P->stmt, P->bind))) {
+                        THROW_SQL(mysql_stmt_errno(P->stmt), "%s", mysql_stmt_error(P->stmt));
+                }
         }
 #if MYSQL_VERSION_ID >= 50002
         unsigned long cursor = CURSOR_TYPE_READ_ONLY;
         mysql_stmt_attr_set(P->stmt, STMT_ATTR_CURSOR_TYPE, &cursor);
 #endif
-        if ((P->lastError = mysql_stmt_execute(P->stmt)))
-                THROW(SQLException, "%s", mysql_stmt_error(P->stmt));
+        if ((P->lastError = mysql_stmt_execute(P->stmt))) {
+                THROW_SQL(mysql_stmt_errno(P->stmt), "%s", mysql_stmt_error(P->stmt));
+        }
         if (P->lastError == MYSQL_OK)
                 return ResultSet_new(MysqlResultSet_new(P->delegator, P->stmt, true), (Rop_T)&mysqlrops);
-        THROW(SQLException, "%s", mysql_stmt_error(P->stmt));
+        THROW_SQL(mysql_stmt_errno(P->stmt), "%s", mysql_stmt_error(P->stmt));
         return NULL;
 }
 

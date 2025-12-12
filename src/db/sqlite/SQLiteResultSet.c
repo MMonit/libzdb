@@ -114,9 +114,9 @@ static bool _next(T R) {
         R->lastError = zdb_sqlite3_step(R->stmt);
         if (R->lastError != SQLITE_ROW && R->lastError != SQLITE_DONE) {
 #ifdef HAVE_SQLITE3_ERRSTR
-                THROW(SQLException, "sqlite3_step -- %s", sqlite3_errstr(R->lastError));
+                THROW_SQL(R->lastError, "sqlite3_step -- %s", sqlite3_errstr(R->lastError));
 #else
-                THROW(SQLException, "sqlite3_step -- error code: %d", R->lastError);
+                THROW_SQL(R->lastError, "sqlite3_step -- error code: %d", R->lastError);
 #endif
         }
         return (R->lastError == SQLITE_ROW);

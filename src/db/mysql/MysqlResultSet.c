@@ -81,8 +81,9 @@ static inline void _ensureCapacity(T R, int i) {
                 RESIZE(R->columns[i].buffer, R->columns[i].real_length + 1);
                 R->bind[i].buffer = R->columns[i].buffer;
                 R->bind[i].buffer_length = R->columns[i].real_length;
-                if ((R->lastError = mysql_stmt_fetch_column(R->stmt, &R->bind[i], i, 0)))
-                        THROW(SQLException, "mysql_stmt_fetch_column -- %s", mysql_stmt_error(R->stmt));
+                if ((R->lastError = mysql_stmt_fetch_column(R->stmt, &R->bind[i], i, 0))) {
+                        THROW_SQL(mysql_stmt_errno(R->stmt), "mysql_stmt_fetch_column -- %s", mysql_stmt_error(R->stmt));
+                }
                 R->needRebind = true;
         }
 }
@@ -200,13 +201,15 @@ static bool _next(T R) {
                 return false;
         }
         if (R->needRebind) {
-                if ((R->lastError = mysql_stmt_bind_result(R->stmt, R->bind)))
-                        THROW(SQLException, "mysql_stmt_bind_result -- %s", mysql_stmt_error(R->stmt));
+                if ((R->lastError = mysql_stmt_bind_result(R->stmt, R->bind))) {
+                        THROW_SQL(mysql_stmt_errno(R->stmt), "mysql_stmt_bind_result -- %s", mysql_stmt_error(R->stmt));
+                }
                 R->needRebind = false;
         }
         R->lastError = mysql_stmt_fetch(R->stmt);
-        if (R->lastError == 1)
-                THROW(SQLException, "mysql_stmt_fetch -- %s", mysql_stmt_error(R->stmt));
+        if (R->lastError == 1) {
+                THROW_SQL(mysql_stmt_errno(R->stmt), "mysql_stmt_fetch -- %s", mysql_stmt_error(R->stmt));
+        }
         R->currentRow++;
         return ((R->lastError == MYSQL_OK) || (R->lastError == MYSQL_DATA_TRUNCATED));
 }

@@ -299,13 +299,14 @@ static int _getFetchSize(T R) {
 
 static bool _next(T R) {
         assert(R);
-        if ((R->currentRow < 0) || ((R->maxRows > 0) && (R->currentRow >= R->maxRows)))
+        if ((R->currentRow < 0) || ((R->maxRows > 0) && (R->currentRow >= (int)R->maxRows)))
                 return false;
         R->lastError = OCIStmtFetch2(R->stmt, R->err, 1, OCI_FETCH_NEXT, 0, OCI_DEFAULT);
         if (R->lastError == OCI_NO_DATA)
                 return false;
-        if (R->lastError != OCI_SUCCESS && R->lastError != OCI_SUCCESS_WITH_INFO)
-                THROW(SQLException, "%s", OraclePreparedStatement_getLastError(R->lastError, R->err));
+        if (R->lastError != OCI_SUCCESS && R->lastError != OCI_SUCCESS_WITH_INFO) {
+                THROW_SQL(R->lastError, "%s", OraclePreparedStatement_getLastError(R->lastError, R->err));
+        }
         if (R->lastError == OCI_SUCCESS_WITH_INFO)
                 DEBUG("_next Error %d, '%s'\n", R->lastError, OraclePreparedStatement_getLastError(R->lastError, R->err));
         R->currentRow++;
