@@ -28,28 +28,46 @@
 #include <oci.h>
 
 #include "zdb.h"
-#include "system/Time.h"
 
-#define WATCHDOG(FUNCNAME, TYPENAME)      \
-static void *FUNCNAME(void *args) {       \
-    TYPENAME S = args;                    \
-    while (S->svc) {                      \
-        if (S->running) {                 \
-            if (S->countdown <= 0) {      \
-                OCIBreak(S->svc, S->err); \
-                S->running = false;       \
-            } else {                      \
-                S->countdown -= 10;       \
-            }                             \
-        }                                 \
-        Time_usleep(10000);               \
-    }                                     \
-    return NULL;                          \
+#define ORACLE_ERR_SIZE 512
+
+/**
+ * Get Oracle error message for the given status code.
+ * @param status The OCI return status code
+ * @param err The OCI error handle
+ * @param buf Buffer to store error message
+ * @param bufsize Size of buffer
+ * @return Pointer to buf containing the error message
+ */
+static inline const char *Oracle_getError(sword status, OCIError *err, char *buf, size_t bufsize) {
+        sb4 errcode;
+        switch (status) {
+                case OCI_SUCCESS:
+                        return "";
+                case OCI_SUCCESS_WITH_INFO:
+                        return "OCI_SUCCESS_WITH_INFO";
+                case OCI_NEED_DATA:
+                        return "OCI_NEED_DATA";
+                case OCI_NO_DATA:
+                        return "OCI_NO_DATA";
+                case OCI_INVALID_HANDLE:
+                        return "OCI_INVALID_HANDLE";
+                case OCI_STILL_EXECUTING:
+                        return "OCI_STILL_EXECUTING";
+                case OCI_CONTINUE:
+                        return "OCI_CONTINUE";
+                case OCI_ERROR:
+                        if (err && buf && bufsize > 0) {
+                                OCIErrorGet(err, 1, NULL, &errcode, (OraText *)buf, (ub4)bufsize, OCI_HTYPE_ERROR);
+                                return buf;
+                        }
+                        return "OCI_ERROR";
+                default:
+                        return "Unknown OCI error";
+        }
 }
-
-const char *OraclePreparedStatement_getLastError(int err, OCIError *errhp) __attribute__ ((visibility("hidden")));
 
 ResultSetDelegate_T OracleResultSet_new(Connection_T delegator, OCIStmt *stmt, OCIEnv *env, OCISession* usr, OCIError *err, OCISvcCtx *svc, int need_free) __attribute__ ((visibility("hidden")));
 PreparedStatementDelegate_T OraclePreparedStatement_new(Connection_T delegator, OCIStmt *stmt, OCIEnv *env, OCISession* usr, OCIError *err, OCISvcCtx *svc) __attribute__ ((visibility("hidden")));
 
-#endif
+#endif // !ORACLEADAPTER_INCLUDED

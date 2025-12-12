@@ -24,11 +24,9 @@
  */
 
 #include "Config.h"
-#include "Thread.h"
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <string.h>
 
 #include "OracleAdapter.h"
@@ -37,7 +35,7 @@
 
 
 /**
- * Implementation of the Connection/Delegate interface for oracle.
+ * Implementation of the Connection/Delegate interface for Oracle.
  *
  * @file
  */
@@ -46,8 +44,6 @@
 /* ----------------------------------------------------------- Definitions */
 
 
-#define ERB_SIZE 152
-#define ORACLE_TRANSACTION_PERIOD 10 // 10-second timeout (though not used with OCI_TRANS_NEW)
 #define T ConnectionDelegate_T
 struct T {
         Connection_T   delegator;
@@ -57,15 +53,12 @@ struct T {
         OCISession*    usr;
         OCIServer*     srv;
         OCITrans*      txnhp;
-        char           erb[ERB_SIZE];
+        char           erb[ORACLE_ERR_SIZE];
         int            maxRows;
         int            timeout;
-        int            countdown;
         sword          lastError;
         ub4            rowsChanged;
         StringBuffer_T sb;
-        Thread_T       watchdog;
-        char           running;
 };
 extern const struct Rop_T oraclerops;
 extern const struct Pop_T oraclepops;
@@ -74,44 +67,13 @@ extern const struct Pop_T oraclepops;
 /* ------------------------------------------------------- Private methods */
 
 
-static const char *_getErrorDescription(T C) {
-        sb4 errcode;
-        switch (C->lastError)
-        {
-                case OCI_SUCCESS:
-                        return "";
-                case OCI_SUCCESS_WITH_INFO:
-                        return "Info - OCI_SUCCESS_WITH_INFO";
-                        break;
-                case OCI_NEED_DATA:
-                        return "Error - OCI_NEED_DATA";
-                        break;
-                case OCI_NO_DATA:
-                        return "Error - OCI_NODATA";
-                        break;
-                case OCI_ERROR:
-                        (void) OCIErrorGet(C->err, 1, NULL, &errcode, C->erb, (ub4)ERB_SIZE, OCI_HTYPE_ERROR);
-                        return C->erb;
-                        break;
-                case OCI_INVALID_HANDLE:
-                        return "Error - OCI_INVALID_HANDLE";
-                        break;
-                case OCI_STILL_EXECUTING:
-                        return "Error - OCI_STILL_EXECUTE";
-                        break;
-                case OCI_CONTINUE:
-                        return "Error - OCI_CONTINUE";
-                        break;
-                default:
-                        break;
-        }
-        return C->erb;
-}
+/* Convenience macro for error messages */
+#define ERR(C) Oracle_getError((C)->lastError, (C)->err, (C)->erb, sizeof((C)->erb))
 
 
-static bool _doConnect(T C, char**  error) {
+static bool _doConnect(T C, char **error) {
 #define ERROR(e) do {*error = Str_dup(e); return false;} while (0)
-#define ORAERROR(e) do{ *error = Str_dup(_getErrorDescription(e)); return false;} while(0)
+#define ORAERROR(e) do {*error = Str_dup(ERR(e)); return false;} while (0)
         URL_T url = Connection_getURL(C->delegator);
         const char *servicename, *username, *password;
         const char *host = URL_getHost(url);
@@ -183,29 +145,18 @@ static bool _doConnect(T C, char**  error) {
 }
 
 
-WATCHDOG(watchdog, T)
-
-
 /* -------------------------------------------------------- Delegate Methods */
 
 
-static const char *_getLastError(T C) {
-        return _getErrorDescription(C);
-}
-
-static void _free(T* C) {
+static void _free(T *C) {
         assert(C && *C);
-        if ((*C)->svc) {
+        if ((*C)->svc)
                 OCISessionEnd((*C)->svc, (*C)->err, (*C)->usr, OCI_DEFAULT);
-                (*C)->svc = NULL;
-        }
         if ((*C)->srv)
                 OCIServerDetach((*C)->srv, (*C)->err, OCI_DEFAULT);
         if ((*C)->env)
                 OCIHandleFree((*C)->env, OCI_HTYPE_ENV);
         StringBuffer_free(&((*C)->sb));
-        if ((*C)->watchdog)
-            Thread_join((*C)->watchdog);
         FREE(*C);
 }
 
@@ -222,7 +173,6 @@ static T _new(Connection_T delegator, char **error) {
                 return NULL;
         }
         C->txnhp = NULL;
-        C->running = false;
         return C;
 }
 
@@ -238,54 +188,31 @@ static void _setQueryTimeout(T C, int ms) {
         assert(C);
         assert(ms >= 0);
         C->timeout = ms;
-        if (ms > 0) {
-                if (!C->watchdog) {
-                        Thread_create(C->watchdog, watchdog, C);
-                }
-        } else {
-                if (C->watchdog) {
-                        OCISvcCtx* t = C->svc;
-                        C->svc = NULL;
-                        Thread_join(C->watchdog);
-                        C->svc = t;
-                        C->watchdog = 0;
-                }
-        }
+        // OCI_ATTR_CALL_TIMEOUT (Oracle 18c+): Sets a timeout in milliseconds for OCI round-trips
+        ub4 timeout_ms = (ub4)ms;
+        C->lastError = OCIAttrSet(C->svc, OCI_HTYPE_SVCCTX, &timeout_ms, 0, OCI_ATTR_CALL_TIMEOUT, C->err);
+        if (C->lastError != OCI_SUCCESS && C->lastError != OCI_SUCCESS_WITH_INFO)
+                DEBUG("Warning: Failed to set OCI_ATTR_CALL_TIMEOUT: %s\n", ERR(C));
 }
 
 
 static bool _beginTransactionType(T C, TRANSACTION_TYPE type) {
-    assert(C);
-
-    // Allocate transaction handle if not already done
-    if (C->txnhp == NULL) {
-        C->lastError = OCIHandleAlloc(C->env, (void **)&C->txnhp, OCI_HTYPE_TRANS, 0, 0);
-        if (C->lastError != OCI_SUCCESS)
-            return false;
-        OCIAttrSet(C->svc, OCI_HTYPE_SVCCTX, (void *)C->txnhp, 0, OCI_ATTR_TRANS, C->err);
-    }
-
-    // Oracle supports two isolation levels: READ COMMITTED (default) and SERIALIZABLE
-    ub4 flags = OCI_TRANS_NEW;
-    switch (type) {
-        case TRANSACTION_SERIALIZABLE:
-            flags |= OCI_TRANS_SERIALIZABLE;
-            break;
-        case TRANSACTION_READ_COMMITTED:
-        case TRANSACTION_READ_UNCOMMITTED:  // Not supported by Oracle, use default
-        case TRANSACTION_REPEATABLE_READ:   // Not supported by Oracle, use default
-        case TRANSACTION_IMMEDIATE:         // SQLite-specific, not applicable
-        case TRANSACTION_EXCLUSIVE:         // SQLite-specific, not applicable
-        case TRANSACTION_DEFAULT:
-        default:
-            // Oracle's default isolation level is READ COMMITTED
-            // No additional flags needed - just OCI_TRANS_NEW
-            break;
-    }
-
-    // Start the transaction
-    C->lastError = OCITransStart(C->svc, C->err, ORACLE_TRANSACTION_PERIOD, flags);
-    return (C->lastError == OCI_SUCCESS);
+        assert(C);
+        // Allocate transaction handle if not already done
+        if (C->txnhp == NULL) {
+                C->lastError = OCIHandleAlloc(C->env, (void **)&C->txnhp, OCI_HTYPE_TRANS, 0, 0);
+                if (C->lastError != OCI_SUCCESS)
+                        return false;
+                OCIAttrSet(C->svc, OCI_HTYPE_SVCCTX, (void *)C->txnhp, 0, OCI_ATTR_TRANS, C->err);
+        }
+        // Oracle supports two isolation levels: READ COMMITTED (default) and SERIALIZABLE
+        ub4 flags = OCI_TRANS_NEW;
+        if (type == TRANSACTION_SERIALIZABLE) {
+                flags |= OCI_TRANS_SERIALIZABLE;
+        }
+        // All other types (DEFAULT, READ_COMMITTED, etc.) use Oracle's default READ COMMITTED
+        C->lastError = OCITransStart(C->svc, C->err, 0, flags);
+        return (C->lastError == OCI_SUCCESS);
 }
 
 
@@ -304,7 +231,9 @@ static bool _rollback(T C) {
 
 
 static long long _lastRowId(T C) {
-        // NA: See doc for Connection_lastRowId
+        assert(C);
+        // NA: See Connection_lastRowId documentation
+        DEBUG("OracleConnection_lastRowId: Not implemented - use RETURNING clause\n");
         return -1;
 }
 
@@ -316,7 +245,7 @@ static long long _rowsChanged(T C) {
 
 
 static bool _execute(T C, const char *sql, va_list ap) {
-        OCIStmt* stmtp;
+        OCIStmt *stmtp;
         va_list ap_copy;
         assert(C);
         C->rowsChanged = 0;
@@ -334,30 +263,25 @@ static bool _execute(T C, const char *sql, va_list ap) {
                 return false;
         }
         /* Execute */
-        if (C->timeout > 0) {
-                C->countdown = C->timeout;
-                C->running = true;
-        }
         C->lastError = OCIStmtExecute(C->svc, stmtp, C->err, 1, 0, NULL, NULL, OCI_DEFAULT);
-        C->running = false;
         if (C->lastError != OCI_SUCCESS && C->lastError != OCI_SUCCESS_WITH_INFO) {
                 ub4 parmcnt = 0;
                 OCIAttrGet(stmtp, OCI_HTYPE_STMT, &parmcnt, NULL, OCI_ATTR_PARSE_ERROR_OFFSET, C->err);
-                DEBUG("Error occured in StmtExecute %d (%s), offset is %d\n", C->lastError, _getLastError(C), parmcnt);
+                DEBUG("Error in StmtExecute %d (%s), offset is %d\n", C->lastError, ERR(C), parmcnt);
                 OCIHandleFree(stmtp, OCI_HTYPE_STMT);
                 return false;
         }
         C->lastError = OCIAttrGet(stmtp, OCI_HTYPE_STMT, &C->rowsChanged, 0, OCI_ATTR_ROW_COUNT, C->err);
         if (C->lastError != OCI_SUCCESS && C->lastError != OCI_SUCCESS_WITH_INFO)
-                DEBUG("OracleConnection_execute: Error in OCIAttrGet %d (%s)\n", C->lastError, _getLastError(C));
+                DEBUG("OracleConnection_execute: Error in OCIAttrGet %d (%s)\n", C->lastError, ERR(C));
         OCIHandleFree(stmtp, OCI_HTYPE_STMT);
         return C->lastError == OCI_SUCCESS;
 }
 
 
 static ResultSet_T _executeQuery(T C, const char *sql, va_list ap) {
-        OCIStmt* stmtp;
-        va_list  ap_copy;
+        OCIStmt *stmtp;
+        va_list ap_copy;
         assert(C);
         C->rowsChanged = 0;
         va_copy(ap_copy, ap);
@@ -374,22 +298,17 @@ static ResultSet_T _executeQuery(T C, const char *sql, va_list ap) {
                 return NULL;
         }
         /* Execute and create Result Set */
-        if (C->timeout > 0) {
-                C->countdown = C->timeout;
-                C->running = true;
-        }
         C->lastError = OCIStmtExecute(C->svc, stmtp, C->err, 0, 0, NULL, NULL, OCI_DEFAULT);
-        C->running = false;
         if (C->lastError != OCI_SUCCESS && C->lastError != OCI_SUCCESS_WITH_INFO) {
                 ub4 parmcnt = 0;
                 OCIAttrGet(stmtp, OCI_HTYPE_STMT, &parmcnt, NULL, OCI_ATTR_PARSE_ERROR_OFFSET, C->err);
-                DEBUG("Error occured in StmtExecute %d (%s), offset is %d\n", C->lastError, _getLastError(C), parmcnt);
+                DEBUG("Error in StmtExecute %d (%s), offset is %d\n", C->lastError, ERR(C), parmcnt);
                 OCIHandleFree(stmtp, OCI_HTYPE_STMT);
                 return NULL;
         }
         C->lastError = OCIAttrGet(stmtp, OCI_HTYPE_STMT, &C->rowsChanged, 0, OCI_ATTR_ROW_COUNT, C->err);
         if (C->lastError != OCI_SUCCESS && C->lastError != OCI_SUCCESS_WITH_INFO)
-                DEBUG("OracleConnection_execute: Error in OCIAttrGet %d (%s)\n", C->lastError, _getLastError(C));
+                DEBUG("OracleConnection_execute: Error in OCIAttrGet %d (%s)\n", C->lastError, ERR(C));
         return ResultSet_new(OracleResultSet_new(C->delegator, stmtp, C->env, C->usr, C->err, C->svc, true), (Rop_T)&oraclerops);
 }
 
@@ -416,10 +335,17 @@ static PreparedStatement_T _prepareStatement(T C, const char *sql, va_list ap) {
 }
 
 
+static const char *_getLastError(T C) {
+        assert(C);
+        return ERR(C);
+}
+
+
 static int _getLastErrorCode(T C) {
         assert(C);
         return C->lastError;
 }
+
 
 /* ------------------------------------------------------------------------- */
 

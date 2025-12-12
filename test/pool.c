@@ -14,14 +14,14 @@
 
 
 /**
- * libzdb connection pool unity tests. 
+ * libzdb connection pool unity tests.
  */
 #define BSIZE 2048
 
 #define SCHEMA_MYSQL      "CREATE TABLE zild_t(id INTEGER AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255), percent REAL, image BLOB);"
 #define SCHEMA_POSTGRESQL "CREATE TABLE zild_t(id SERIAL PRIMARY KEY, name VARCHAR(255), percent REAL, image BYTEA);"
 #define SCHEMA_SQLITE     "CREATE TABLE zild_t(id INTEGER PRIMARY KEY, name VARCHAR(255), percent REAL, image BLOB);"
-#define SCHEMA_ORACLE     "CREATE TABLE zild_t(id NUMBER GENERATED AS IDENTITY, name VARCHAR(255), percent REAL, image CLOB);"
+#define SCHEMA_ORACLE     "CREATE TABLE zild_t(id NUMBER GENERATED AS IDENTITY, name VARCHAR(255), percent REAL, image BLOB);"
 
 #if HAVE_STRUCT_TM_TM_GMTOFF
 #define TM_GMTOFF tm_gmtoff
@@ -137,7 +137,7 @@ static void testPool(const char *testURL) {
                 Connection_execute(con, "%s", schema);
                 Connection_beginTransaction(con);
                 /* Insert values into database and assume that auto increment of id works */
-                for (i = 0; data[i]; i++) 
+                for (i = 0; data[i]; i++)
                         Connection_execute(con, "insert into zild_t (name, percent) values('%s', %d.%d);", data[i], i+1, i);
                 // Assert that the last insert statement added one row
                 assert(Connection_rowsChanged(con) == 1);
@@ -150,7 +150,7 @@ static void testPool(const char *testURL) {
                 printf("\tResult: table zild_t successfully created\n");
                 Connection_close(con);
         }
-        printf("=> Test4: OK\n\n");     
+        printf("=> Test4: OK\n\n");
         
         
         printf("=> Test5: Prepared Statement\n");
@@ -159,24 +159,20 @@ static void testPool(const char *testURL) {
                 char blob[8192];
                 char *images[]= {"Ceci n'est pas une pipe", "Mona Lisa",
                         "Bryllup i Hardanger", "The Scream",
-                        "Vampyre", "Balcony", "Cycle", "Day & Night", 
+                        "Vampyre", "Balcony", "Cycle", "Day & Night",
                         "Hand with Reflecting Sphere",
-                        "Drawing Hands", "Ascending and Descending", 0}; 
+                        "Drawing Hands", "Ascending and Descending", 0};
                 Connection_T con = ConnectionPool_getConnection(pool);
                 assert(con);
                 // 1. Prepared statement, perform a nonsense update to test rowsChanged
                 PreparedStatement_T p1 = Connection_prepareStatement(con, "update zild_t set image=?");
-                // Update with a "new" value as MariaDB will not update columns where the new value is
-                // the same as the old value. This creates the possibility that mysql_stmt_affected_rows()
-                // and PreparedStatement_rowsChanged() may not actually equal the number of rows matched,
-                // only the number of rows that were literally affected by the query.
-                // Ref Issue #50: https://bitbucket.org/tildeslash/libzdb/issues/50/tests-assertexception
-                PreparedStatement_setString(p1, 1, "xxx");
+                // Use setBlob for BLOB columns - setString with non-hex fails on Oracle (ORA-01465)
+                PreparedStatement_setBlob(p1, 1, "xxx", 3);
                 PreparedStatement_execute(p1);
                 printf("\tRows changed: %lld\n", PreparedStatement_rowsChanged(p1));
                 // Assert that all 12 rows in the data set was changed
                 assert(PreparedStatement_rowsChanged(p1) == 12);
-                // 2. Prepared statement, update the table proper with "images". 
+                // 2. Prepared statement, update the table proper with "images".
                 PreparedStatement_T pre = Connection_prepareStatement(con, "update zild_t set image=? where id=?");
                 assert(pre);
                 assert(PreparedStatement_getParameterCount(pre) == 2);
@@ -204,7 +200,7 @@ static void testPool(const char *testURL) {
                 printf("\tResult: prepared statement successfully executed\n");
                 Connection_close(con);
         }
-        printf("=> Test5: OK\n\n");     
+        printf("=> Test5: OK\n\n");
         
         
         printf("=> Test6: Result Sets\n");
@@ -391,8 +387,8 @@ static void testPool(const char *testURL) {
                 ConnectionPool_start(pool);
                 con = ConnectionPool_getConnection(pool);
                 assert(con);
-                /* 
-                 * The following should work without throwing exceptions 
+                /*
+                 * The following should work without throwing exceptions
                  */
                 TRY
                 {
@@ -431,8 +427,8 @@ static void testPool(const char *testURL) {
                         PreparedStatement_T p = Connection_prepareStatement
                         (con, "insert into zild_t (name) values(?);");
                         /* If we did not get a statement, an SQLException is thrown
-                           and we will not get here. So we can safely use the 
-                           statement now. Likewise, below, we do not have to 
+                           and we will not get here. So we can safely use the
+                           statement now. Likewise, below, we do not have to
                            check return values from the statement since any error
                            will throw an SQLException and transfer the control
                            to the exception handler
@@ -466,9 +462,9 @@ static void testPool(const char *testURL) {
                         Connection_close(con);
                 }
                 END_TRY;
-                /* 
-                 * The following should fail and throw exceptions. The exception error 
-                 * message can be obtained with Exception_frame.message, or from 
+                /*
+                 * The following should fail and throw exceptions. The exception error
+                 * message can be obtained with Exception_frame.message, or from
                  * Connection_getLastError(con). Exception_frame.message contains both
                  * SQL errors or api errors such as prepared statement parameter index
                  * out of range, while Connection_getLastError(con) only has SQL errors
@@ -477,7 +473,7 @@ static void testPool(const char *testURL) {
                 {
                         assert((con = ConnectionPool_getConnection(pool)));
                         Connection_execute(con, "%s", schema);
-                        /* Creating the table again should fail and we 
+                        /* Creating the table again should fail and we
                         should not come here */
                         printf("\tResult: Test failed -- exception not thrown\n");
                         exit(1);
@@ -526,7 +522,7 @@ static void testPool(const char *testURL) {
                         printf("\tTesting: Column index out of range.. ");
                         result = Connection_executeQuery(con, "select id, name from zild_t;");
                         while (ResultSet_next(result)) {
-                                int id = ResultSet_getInt(result, 1);  
+                                int id = ResultSet_getInt(result, 1);
                                 const char *name = ResultSet_getString(result, 2);
                                 /* So far so good, now, try access an invalid
                                    column, which should throw an SQLException */
@@ -677,7 +673,7 @@ static void testPool(const char *testURL) {
                 else
                         Connection_execute(con, "create table zild_t(d date, t time, dt datetime, ts timestamp);");
                 PreparedStatement_T p = Connection_prepareStatement(con, "insert into zild_t values(?, ?, ?, ?);");
-                if (Str_startsWith(testURL, "oracle")) { // Oracle does not have a pure time data type 
+                if (Str_startsWith(testURL, "oracle")) { // Oracle does not have a pure time data type
                         Connection_execute(con, "alter session set nls_date_format='YYYY-MM-DD HH24:MI:SS';");
                         Connection_execute(con, "alter session set nls_timestamp_format='YYYY-MM-DD HH24:MI:SS';");
                         PreparedStatement_setString(p, 1, "2013-12-28 00:00:00");
@@ -761,12 +757,12 @@ int main(void) {
         Exception_init();
         printf("============> Start Connection Pool Tests\n\n");
         printf("This test will create and drop a table called zild_t in the database\n");
-	printf("%s", help);
-	while (fgets(buf, BSIZE, stdin)) {
-		if (*buf == '.' || *buf == 'q')
+        printf("%s", help);
+        while (fgets(buf, BSIZE, stdin)) {
+                if (*buf == '.' || *buf == 'q')
                         break;
-		if (*buf == '\r' || *buf == '\n' || *buf == 0) 
-			goto next;
+                if (*buf == '\r' || *buf == '\n' || *buf == 0)
+                        goto next;
                 url = URL_new(buf);
                 if (! url) {
                         printf("Please enter a valid database URL or stop by entering '.'\n");
@@ -778,6 +774,6 @@ int main(void) {
                 continue;
 next:
                 printf("Connection URL> ");
-	}
-	return 0;
+        }
+        return 0;
 }
