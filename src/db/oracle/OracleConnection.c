@@ -21,7 +21,7 @@
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
- */ 
+ */
 
 #include "Config.h"
 #include "Thread.h"
@@ -37,7 +37,7 @@
 
 
 /**
- * Implementation of the Connection/Delegate interface for oracle. 
+ * Implementation of the Connection/Delegate interface for oracle.
  *
  * @file
  */
@@ -265,22 +265,22 @@ static bool _beginTransactionType(T C, TRANSACTION_TYPE type) {
         OCIAttrSet(C->svc, OCI_HTYPE_SVCCTX, (void *)C->txnhp, 0, OCI_ATTR_TRANS, C->err);
     }
 
-    // Set isolation level based on transaction type
-    ub4 flags = OCI_TRANS_NEW;  // Always start a new transaction
+    // Oracle supports two isolation levels: READ COMMITTED (default) and SERIALIZABLE
+    ub4 flags = OCI_TRANS_NEW;
     switch (type) {
-        case TRANSACTION_READ_COMMITTED:
-            flags |= OCI_TRANS_READONLY;  // This is actually READ COMMITTED in Oracle
-            break;
         case TRANSACTION_SERIALIZABLE:
             flags |= OCI_TRANS_SERIALIZABLE;
             break;
-        case TRANSACTION_READ_UNCOMMITTED:
-        case TRANSACTION_REPEATABLE_READ:
-        case TRANSACTION_IMMEDIATE:
-        case TRANSACTION_EXCLUSIVE:
+        case TRANSACTION_READ_COMMITTED:
+        case TRANSACTION_READ_UNCOMMITTED:  // Not supported by Oracle, use default
+        case TRANSACTION_REPEATABLE_READ:   // Not supported by Oracle, use default
+        case TRANSACTION_IMMEDIATE:         // SQLite-specific, not applicable
+        case TRANSACTION_EXCLUSIVE:         // SQLite-specific, not applicable
         case TRANSACTION_DEFAULT:
         default:
-            flags |= OCI_TRANS_READONLY;  // Default to READ COMMITTED
+            // Oracle's default isolation level is READ COMMITTED
+            // No additional flags needed - just OCI_TRANS_NEW
+            break;
     }
 
     // Start the transaction
@@ -304,31 +304,7 @@ static bool _rollback(T C) {
 
 
 static long long _lastRowId(T C) {
-        /*:FIXME:*/
-        /*
-         Oracle's RowID can be mapped on string only
-         so, currently I leave it unimplemented
-         */
-        
-        /*     OCIRowid* rowid; */
-        /*     OCIDescriptorAlloc((dvoid *)C->env,  */
-        /*                        (dvoid **)&rowid, */
-        /*                        (ub4) OCI_DTYPE_ROWID,  */
-        /*                        (size_t) 0, (dvoid **) 0); */
-        
-        /*     if (OCIAttrGet (select_p, */
-        /*                     OCI_HTYPE_STMT, */
-        /*                     &rowid,              /\* get the current rowid *\/ */
-        /*                     0, */
-        /*                     OCI_ATTR_ROWID, */
-        /*                     errhp)) */
-        /*     { */
-        /*         printf ("Getting the Rowid failed \n"); */
-        /*         return (OCI_ERROR); */
-        /*     } */
-        
-        /*     OCIDescriptorFree(rowid, OCI_DTYPE_ROWID); */
-        DEBUG("OracleConnection_lastRowId: Not implemented yet");
+        // NA: See doc for Connection_lastRowId
         return -1;
 }
 
