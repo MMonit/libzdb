@@ -245,7 +245,7 @@ static bool _rollback(T C) {
 
 static long long _lastRowId(T C) {
         assert(C);
-        // NA: See doc for Connection_lastRowId
+        // NA: See Connection_lastRowId documentation
         return (long long)PQoidValue(C->res);
 }
 
