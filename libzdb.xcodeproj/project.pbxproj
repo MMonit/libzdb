@@ -337,6 +337,7 @@
 		52E160F9241B068400022FD7 /* ax_info.m4 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = ax_info.m4; sourceTree = "<group>"; };
 		52E4F1F32C4D562400F12041 /* database++.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "database++.png"; sourceTree = "<group>"; };
 		52E79D72168EA4FC00E510BF /* libzdb.css */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.css; path = libzdb.css; sourceTree = "<group>"; };
+		52F7C8B12EECF79200567556 /* .editorconfig */ = {isa = PBXFileReference; lastKnownFileType = text; path = .editorconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -419,6 +420,7 @@
 			isa = PBXGroup;
 			children = (
 				5287A4021F561BF50097C39D /* .gitignore */,
+				52F7C8B12EECF79200567556 /* .editorconfig */,
 				52788BDB13E716A0002F3C7C /* README */,
 				52788BD213E716A0002F3C7C /* COPYING */,
 				52788BC613E716A0002F3C7C /* AUTHORS */,
