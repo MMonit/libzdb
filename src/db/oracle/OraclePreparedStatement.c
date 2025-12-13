@@ -35,6 +35,15 @@
 /**
  * Implementation of the PreparedStatement/Delegate interface for Oracle.
  *
+ * LOB handling:
+ * PreparedStatement_setBlob() binds parameters as SQLT_BLOB using temporary
+ * LOBs (OCILobCreateTemporary). This works for BLOB columns; binding to CLOB
+ * columns may require SQLT_CLOB and appropriate character set handling.
+ *
+ * The OCI API supports both BLOB and CLOB via OCILobWrite2(), so a future
+ * enhancement could add a setClob() method or auto-detect the target column
+ * type if needed.
+ *
  * @file
  */
 
