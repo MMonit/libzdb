@@ -35,6 +35,16 @@
 /**
  * Implementation of the ResultSet/Delegate interface for Oracle.
  *
+ * LOB handling:
+ * Currently only BLOB columns are fully supported via ResultSet_getBlob().
+ * Calling ResultSet_getString() on a BLOB/CLOB column returns NULL.
+ *
+ * The underlying OCILobRead2() API supports both BLOB and CLOB, returning
+ * byte and character counts respectively. A future enhancement could:
+ * - Track column type (SQLT_BLOB vs SQLT_CLOB) in column_t during _initDefiningBuffers
+ * - Use OCIAttrGet with OCI_ATTR_DATA_TYPE for runtime type reflection
+ * - Support ResultSet_getString() on CLOB columns via a shared _readLob() helper
+ *
  * @file
  */
 
@@ -48,6 +58,7 @@ typedef struct column_t {
         char *buffer;
         char *name;
         unsigned long length;
+        unsigned long capacity;
         OCILobLocator *lob_loc;
         OCIDateTime *date;
 } *column_t;
@@ -311,6 +322,10 @@ static const char *_getString(T R, int columnIndex) {
         if (R->columns[i].date) {
                 if (!_dateToString(R, i))
                         THROW(SQLException, "%s", ERR(R));
+        } else if (R->columns[i].lob_loc) {
+                /* BLOB/CLOB columns should use ResultSet_getBlob() */
+                DEBUG("_getString: column %d is a LOB type, use getBlob() instead\n", columnIndex);
+                return NULL;
         }
         if (R->columns[i].buffer)
                 R->columns[i].buffer[R->columns[i].length] = 0;
@@ -323,30 +338,44 @@ static const void *_getBlob(T R, int columnIndex, int *size) {
         int i = checkAndSetColumnIndex(columnIndex, R->columnCount);
         if (R->columns[i].isNull)
                 return NULL;
-        if (R->columns[i].buffer)
-                FREE(R->columns[i].buffer);
+        /*
+         * Reuse the existing buffer if possible. BLOB columns in a result set
+         * typically contain data of similar size (e.g., images, documents), so
+         * after processing a few rows, the buffer stabilizes at the high-water
+         * mark and subsequent reads avoid unnecessary alloc/free cycles. The
+         * buffer is freed when the ResultSet is closed. This follows the same
+         * pattern used in MysqlResultSet.c (_ensureCapacity).
+         */
         oraub8 read_chars = 0;
         oraub8 read_bytes = 0;
         oraub8 total_bytes = 0;
-        R->columns[i].buffer = ALLOC(LOB_CHUNK_SIZE);
         *size = 0;
+        /* Ensure we have an initial buffer */
+        if (!R->columns[i].buffer) {
+                R->columns[i].buffer = ALLOC(LOB_CHUNK_SIZE);
+                R->columns[i].capacity = LOB_CHUNK_SIZE;
+        }
         ub1 piece = OCI_FIRST_PIECE;
         do {
                 read_bytes = 0;
                 read_chars = 0;
+                /* Ensure capacity for the next chunk */
+                if (total_bytes + LOB_CHUNK_SIZE > R->columns[i].capacity) {
+                        R->columns[i].capacity = total_bytes + LOB_CHUNK_SIZE;
+                        R->columns[i].buffer = RESIZE(R->columns[i].buffer, R->columns[i].capacity);
+                }
                 R->lastError = OCILobRead2(R->svc, R->err, R->columns[i].lob_loc, &read_bytes, &read_chars, 1,
                                            R->columns[i].buffer + total_bytes, LOB_CHUNK_SIZE, piece,
                                            NULL, NULL, 0, SQLCS_IMPLICIT);
                 if (read_bytes) {
                         total_bytes += read_bytes;
                         piece = OCI_NEXT_PIECE;
-                        R->columns[i].buffer = RESIZE(R->columns[i].buffer, (long)(total_bytes + LOB_CHUNK_SIZE));
                 }
         } while (R->lastError == OCI_NEED_DATA);
         if (R->lastError != OCI_SUCCESS && R->lastError != OCI_SUCCESS_WITH_INFO) {
                 FREE(R->columns[i].buffer);
-                R->columns[i].buffer = NULL;
-                THROW(SQLException, "%s", ERR(R));
+                R->columns[i].capacity = 0;
+                THROW_SQL(R->lastError, "%s", ERR(R));
         }
         *size = R->columns[i].length = (int)total_bytes;
         return (const void *)R->columns[i].buffer;
