@@ -124,6 +124,30 @@
  * statements in a try block must do a return, they **must** do so with
  * this macro instead of the usual C return statement.
  *
+ * ## Recommended: Use TRY-ELSE
+ *
+ * For most use cases, we recommend using TRY-ELSE rather than TRY-CATCH.
+ * The ELSE block catches *any* exception, which simplifies client code
+ * since libzdb can throw various Exception types. Unless you need to
+ * differentiate between specific exception types, TRY-ELSE provides
+ * a cleaner and more robust pattern:
+ *
+ * ```c
+ * TRY
+ * {
+ *      Connection_execute(c, sql);
+ * }
+ * ELSE
+ * {
+ *      // Handle error
+ * }
+ * END_TRY;
+ * ```
+ *
+ * Use TRY-CATCH only when you need to handle different exception types
+ * differently. For general error handling where the response is the same
+ * regardless of the exception type, TRY-ELSE is the preferred approach.
+ *
  * ## Exception details
  * Inside an exception handler, details about an exception are
  * available in the variable `Exception_frame`. The following
@@ -174,7 +198,7 @@
  * END_TRY;
  * ```
  *
- * The error code is driver-specific; consult your database's documentation
+ * The error code is database-specific; consult your database's documentation
  * for the meaning of specific codes (e.g., MySQL error codes, PostgreSQL
  * SQLSTATE values, etc.). A value of 0 typically indicates no specific
  * error code was provided.
@@ -201,30 +225,6 @@
  * END_TRY;
  * assert(i == 1); // i will be 1 here regardless if it is declared volatile or not
  * ```
- *
- * ## Recommended: Use TRY-ELSE
- *
- * For most use cases, we recommend using TRY-ELSE rather than TRY-CATCH.
- * The ELSE block catches *any* exception, which simplifies client code
- * since libzdb can throw various Exception types. Unless you need to
- * differentiate between specific exception types, TRY-ELSE provides
- * a cleaner and more robust pattern:
- *
- * ```c
- * TRY
- * {
- *      Connection_execute(c, sql);
- * }
- * ELSE
- * {
- *      log("Error: %s\n", Exception_frame.message);
- * }
- * END_TRY;
- * ```
- *
- * Use TRY-CATCH only when you need to handle different exception types
- * differently. For general error handling where the response is the same
- * regardless of the exception type, TRY-ELSE is the preferred approach.
  *
  * ## Thread-safe
  *
