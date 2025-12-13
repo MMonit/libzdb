@@ -49,8 +49,7 @@ endif
 if WITH_ORACLE
 libzdb_la_SOURCES += src/db/oracle/OracleConnection.c \
                      src/db/oracle/OracleResultSet.c \
-                     src/db/oracle/OraclePreparedStatement.c \
-                     src/db/oracle/OracleAdapter.c
+                     src/db/oracle/OraclePreparedStatement.c
 endif
 
 API_INTERFACES  = src/zdb.h src/zdbpp.h src/db/ConnectionPool.h \
