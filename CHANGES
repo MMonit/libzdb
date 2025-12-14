@@ -19,7 +19,8 @@ Version 3.5.0
   server instead. Advanced users who understand these limitations can
   override this restriction using the allow-proxy=true URL parameter,
   though connection failures or unpredictable behavior may result.
-* Enhancement: Oracle: Optimised and cleaned up code. Libzdb now supports
+* Enhancement: Improved documentation around Exceptions and error codes
+* Enhancement: Oracle: Optimised and cleaned up. Libzdb now supports
   Oracle version 18c and later. Fixed a bug in transaction handling.
 * Fixed: PostgreSQL: If the Connection_beginTransaction(),
   Connection_commit(), or Connection_rollback() functions failed
