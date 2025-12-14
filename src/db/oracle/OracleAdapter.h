@@ -32,39 +32,56 @@
 #define ORACLE_ERR_SIZE 512
 
 /**
- * Get Oracle error message for the given status code.
+ * Get Oracle error code (ORA-XXXXX number) and message from an OCI error handle.
  * @param status The OCI return status code
  * @param err The OCI error handle
- * @param buf Buffer to store error message
+ * @param code Output parameter for the Oracle error code (e.g., 1 for ORA-00001), or NULL if not needed
+ * @param buf Buffer to store error message, or NULL if message not needed
  * @param bufsize Size of buffer
- * @return Pointer to buf containing the error message
+ * @return Pointer to error message (buf if provided, or a static string)
  */
-static inline const char *Oracle_getError(sword status, OCIError *err, char *buf, size_t bufsize) {
-        sb4 errcode;
+static inline const char *Oracle_getError(sword status, OCIError *err, int *code, char *buf, size_t bufsize) {
+        sb4 errcode = 0;
+        const char *msg;
         switch (status) {
                 case OCI_SUCCESS:
-                        return "";
+                        msg = "";
+                        break;
                 case OCI_SUCCESS_WITH_INFO:
-                        return "OCI_SUCCESS_WITH_INFO";
+                        msg = "OCI_SUCCESS_WITH_INFO";
+                        break;
                 case OCI_NEED_DATA:
-                        return "OCI_NEED_DATA";
+                        msg = "OCI_NEED_DATA";
+                        break;
                 case OCI_NO_DATA:
-                        return "OCI_NO_DATA";
+                        msg = "OCI_NO_DATA";
+                        break;
                 case OCI_INVALID_HANDLE:
-                        return "OCI_INVALID_HANDLE";
+                        msg = "OCI_INVALID_HANDLE";
+                        break;
                 case OCI_STILL_EXECUTING:
-                        return "OCI_STILL_EXECUTING";
+                        msg = "OCI_STILL_EXECUTING";
+                        break;
                 case OCI_CONTINUE:
-                        return "OCI_CONTINUE";
+                        msg = "OCI_CONTINUE";
+                        break;
                 case OCI_ERROR:
-                        if (err && buf && bufsize > 0) {
-                                OCIErrorGet(err, 1, NULL, &errcode, (OraText *)buf, (ub4)bufsize, OCI_HTYPE_ERROR);
-                                return buf;
+                        if (err) {
+                                OCIErrorGet(err, 1, NULL, &errcode,
+                                            buf ? (OraText *)buf : NULL,
+                                            buf ? (ub4)bufsize : 0,
+                                            OCI_HTYPE_ERROR);
+                                msg = buf ? buf : "OCI_ERROR";
+                        } else {
+                                msg = "OCI_ERROR";
                         }
-                        return "OCI_ERROR";
+                        break;
                 default:
-                        return "Unknown OCI error";
+                        msg = "Unknown OCI error";
         }
+        if (code)
+                *code = (int)errcode;
+        return msg;
 }
 
 ResultSetDelegate_T OracleResultSet_new(Connection_T delegator, OCIStmt *stmt, OCIEnv *env, OCISession* usr, OCIError *err, OCISvcCtx *svc, int need_free) __attribute__ ((visibility("hidden")));

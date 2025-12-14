@@ -92,7 +92,14 @@ struct T {
 
 
 /* Convenience macro for error messages */
-#define ERR(R) Oracle_getError((R)->lastError, (R)->err, (R)->erb, sizeof((R)->erb))
+#define ERR(R) Oracle_getError((R)->lastError, (R)->err, NULL, (R)->erb, sizeof((R)->erb))
+
+/* Macro to throw SQLException with Oracle error code and message in one OCIErrorGet call */
+#define THROW_ORACLE_ERROR(R) do { \
+        int _code; \
+        const char *_msg = Oracle_getError((R)->lastError, (R)->err, &_code, (R)->erb, sizeof((R)->erb)); \
+        THROW_SQL(_code, "%s", _msg); \
+} while(0)
 
 
 static bool _initDefiningBuffers(T R) {
@@ -299,7 +306,7 @@ static bool _next(T R) {
         if (R->lastError == OCI_NO_DATA)
                 return false;
         if (R->lastError != OCI_SUCCESS && R->lastError != OCI_SUCCESS_WITH_INFO)
-                THROW_SQL(R->lastError, "%s", ERR(R));
+                THROW_ORACLE_ERROR(R);
         if (R->lastError == OCI_SUCCESS_WITH_INFO)
                 DEBUG("_next: %s\n", ERR(R));
         R->currentRow++;
@@ -375,7 +382,7 @@ static const void *_getBlob(T R, int columnIndex, int *size) {
         if (R->lastError != OCI_SUCCESS && R->lastError != OCI_SUCCESS_WITH_INFO) {
                 FREE(R->columns[i].buffer);
                 R->columns[i].capacity = 0;
-                THROW_SQL(R->lastError, "%s", ERR(R));
+                THROW_ORACLE_ERROR(R);
         }
         *size = R->columns[i].length = (int)total_bytes;
         return (const void *)R->columns[i].buffer;

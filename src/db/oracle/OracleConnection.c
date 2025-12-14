@@ -56,6 +56,7 @@ struct T {
         char           erb[ORACLE_ERR_SIZE];
         int            maxRows;
         int            timeout;
+        int            errorCode;
         sword          lastError;
         ub4            rowsChanged;
         StringBuffer_T sb;
@@ -67,8 +68,8 @@ extern const struct Pop_T oraclepops;
 /* ------------------------------------------------------- Private methods */
 
 
-/* Convenience macro for error messages */
-#define ERR(C) Oracle_getError((C)->lastError, (C)->err, (C)->erb, sizeof((C)->erb))
+/* Convenience macro for error messages (also updates errorCode) */
+#define ERR(C) Oracle_getError((C)->lastError, (C)->err, &(C)->errorCode, (C)->erb, sizeof((C)->erb))
 
 
 static bool _doConnect(T C, char **error) {
@@ -249,6 +250,7 @@ static bool _execute(T C, const char *sql, va_list ap) {
         va_list ap_copy;
         assert(C);
         C->rowsChanged = 0;
+        C->errorCode = 0;
         va_copy(ap_copy, ap);
         StringBuffer_vset(C->sb, sql, ap_copy);
         va_end(ap_copy);
@@ -259,15 +261,14 @@ static bool _execute(T C, const char *sql, va_list ap) {
                 return false;
         C->lastError = OCIStmtPrepare(stmtp, C->err, StringBuffer_toString(C->sb), StringBuffer_length(C->sb), OCI_NTV_SYNTAX, OCI_DEFAULT);
         if (C->lastError != OCI_SUCCESS && C->lastError != OCI_SUCCESS_WITH_INFO) {
+                ERR(C); // Populate error message and code
                 OCIHandleFree(stmtp, OCI_HTYPE_STMT);
                 return false;
         }
         /* Execute */
         C->lastError = OCIStmtExecute(C->svc, stmtp, C->err, 1, 0, NULL, NULL, OCI_DEFAULT);
         if (C->lastError != OCI_SUCCESS && C->lastError != OCI_SUCCESS_WITH_INFO) {
-                ub4 parmcnt = 0;
-                OCIAttrGet(stmtp, OCI_HTYPE_STMT, &parmcnt, NULL, OCI_ATTR_PARSE_ERROR_OFFSET, C->err);
-                DEBUG("Error in StmtExecute %d (%s), offset is %d\n", C->lastError, ERR(C), parmcnt);
+                ERR(C); // Populate error message and code
                 OCIHandleFree(stmtp, OCI_HTYPE_STMT);
                 return false;
         }
@@ -284,6 +285,7 @@ static ResultSet_T _executeQuery(T C, const char *sql, va_list ap) {
         va_list ap_copy;
         assert(C);
         C->rowsChanged = 0;
+        C->errorCode = 0;
         va_copy(ap_copy, ap);
         StringBuffer_vset(C->sb, sql, ap_copy);
         va_end(ap_copy);
@@ -294,15 +296,14 @@ static ResultSet_T _executeQuery(T C, const char *sql, va_list ap) {
                 return NULL;
         C->lastError = OCIStmtPrepare(stmtp, C->err, StringBuffer_toString(C->sb), StringBuffer_length(C->sb), OCI_NTV_SYNTAX, OCI_DEFAULT);
         if (C->lastError != OCI_SUCCESS && C->lastError != OCI_SUCCESS_WITH_INFO) {
+                ERR(C); // Populate error message and code
                 OCIHandleFree(stmtp, OCI_HTYPE_STMT);
                 return NULL;
         }
         /* Execute and create Result Set */
         C->lastError = OCIStmtExecute(C->svc, stmtp, C->err, 0, 0, NULL, NULL, OCI_DEFAULT);
         if (C->lastError != OCI_SUCCESS && C->lastError != OCI_SUCCESS_WITH_INFO) {
-                ub4 parmcnt = 0;
-                OCIAttrGet(stmtp, OCI_HTYPE_STMT, &parmcnt, NULL, OCI_ATTR_PARSE_ERROR_OFFSET, C->err);
-                DEBUG("Error in StmtExecute %d (%s), offset is %d\n", C->lastError, ERR(C), parmcnt);
+                ERR(C); // Populate error message and code
                 OCIHandleFree(stmtp, OCI_HTYPE_STMT);
                 return NULL;
         }
@@ -317,6 +318,7 @@ static PreparedStatement_T _prepareStatement(T C, const char *sql, va_list ap) {
         OCIStmt *stmtp;
         va_list ap_copy;
         assert(C);
+        C->errorCode = 0;
         va_copy(ap_copy, ap);
         StringBuffer_vset(C->sb, sql, ap_copy);
         va_end(ap_copy);
@@ -328,6 +330,7 @@ static PreparedStatement_T _prepareStatement(T C, const char *sql, va_list ap) {
                 return NULL;
         C->lastError = OCIStmtPrepare(stmtp, C->err, StringBuffer_toString(C->sb), StringBuffer_length(C->sb), OCI_NTV_SYNTAX, OCI_DEFAULT);
         if (C->lastError != OCI_SUCCESS && C->lastError != OCI_SUCCESS_WITH_INFO) {
+                ERR(C); // Populate error message and code
                 OCIHandleFree(stmtp, OCI_HTYPE_STMT);
                 return NULL;
         }
@@ -343,7 +346,7 @@ static const char *_getLastError(T C) {
 
 static int _getLastErrorCode(T C) {
         assert(C);
-        return C->lastError;
+        return C->errorCode;
 }
 
 

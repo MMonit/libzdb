@@ -299,13 +299,30 @@
  *
  * ### Oracle
  *
- * Oracle uses ORA- error numbers. Common codes include:
+ * Oracle uses ORA- error numbers (the numeric portion without the ORA- prefix).
+ * Common codes include:
  *
- * - ORA-00001 - Unique constraint violated
- * - ORA-02292 - Integrity constraint violated - child record found
- * - ORA-00060 - Deadlock detected while waiting for resource
+ * - 1 (ORA-00001) - Unique constraint violated
+ * - 60 (ORA-00060) - Deadlock detected while waiting for resource
+ * - 1017 (ORA-01017) - Invalid username/password
+ * - 1400 (ORA-01400) - Cannot insert NULL
+ * - 1438 (ORA-01438) - Value larger than allowed precision
+ * - 2291 (ORA-02291) - Integrity constraint violated - parent key not found
+ * - 2292 (ORA-02292) - Integrity constraint violated - child record found
  *
- * The numeric portion (without ORA- prefix) is stored in errorCode.
+ * ```c
+ * TRY
+ *     Connection_execute(c, sql);
+ * ELSE
+ *     if (Exception_frame.errorCode == 1) {
+ *         // Handle unique constraint violation (ORA-00001)
+ *     } else if (Exception_frame.errorCode == 60) {
+ *         // Handle deadlock - consider retry (ORA-00060)
+ *     }
+ * END_TRY;
+ * ```
+ *
+ * See: https://docs.oracle.com/en/database/oracle/oracle-database/19/errmg/
  *
  *
  * ## Volatile and assignment inside a try-block
@@ -330,7 +347,7 @@
  * END_TRY;
  * assert(i == 1); // i will be 1 here regardless if it is declared volatile or not
  * ```
- * 
+ *
  *
  * ## Thread-safe
  *

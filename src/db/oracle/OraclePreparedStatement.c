@@ -87,7 +87,14 @@ extern const struct Rop_T oraclerops;
 
 
 /* Convenience macro for error messages */
-#define ERR(P) Oracle_getError((P)->lastError, (P)->err, (P)->erb, sizeof((P)->erb))
+#define ERR(P) Oracle_getError((P)->lastError, (P)->err, NULL, (P)->erb, sizeof((P)->erb))
+
+/* Macro to throw SQLException with Oracle error code and message in one OCIErrorGet call */
+#define THROW_ORACLE_ERROR(P) do { \
+        int _code; \
+        const char *_msg = Oracle_getError((P)->lastError, (P)->err, &_code, (P)->erb, sizeof((P)->erb)); \
+        THROW_SQL(_code, "%s", _msg); \
+} while(0)
 
 
 /* ------------------------------------------------------------- Constructor */
@@ -271,10 +278,10 @@ static void _execute(T P) {
         P->rowsChanged = 0;
         P->lastError = OCIStmtExecute(P->svc, P->stmt, P->err, 1, 0, NULL, NULL, OCI_DEFAULT);
         if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO)
-                THROW_SQL(P->lastError, "%s", ERR(P));
+                THROW_ORACLE_ERROR(P);
         P->lastError = OCIAttrGet(P->stmt, OCI_HTYPE_STMT, &P->rowsChanged, 0, OCI_ATTR_ROW_COUNT, P->err);
         if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO)
-                THROW_SQL(P->lastError, "%s", ERR(P));
+                THROW_ORACLE_ERROR(P);
 }
 
 
@@ -284,7 +291,7 @@ static ResultSet_T _executeQuery(T P) {
         P->lastError = OCIStmtExecute(P->svc, P->stmt, P->err, 0, 0, NULL, NULL, OCI_DEFAULT);
         if (P->lastError == OCI_SUCCESS || P->lastError == OCI_SUCCESS_WITH_INFO)
                 return ResultSet_new(OracleResultSet_new(P->delegator, P->stmt, P->env, P->usr, P->err, P->svc, false), (Rop_T)&oraclerops);
-        THROW_SQL(P->lastError, "%s", ERR(P));
+        THROW_ORACLE_ERROR(P);
         return NULL;
 }
 
