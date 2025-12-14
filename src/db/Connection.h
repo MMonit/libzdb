@@ -250,8 +250,7 @@ time_t Connection_getLastAccessedTime(T C) __attribute__ ((visibility("hidden"))
  * @brief Sets the query timeout for this Connection.
  *
  * If the limit is exceeded, the statement will return immediately with an 
- * error. The timeout is set per connection/session. Not all database
- * systems support query (SELECT) timeout. The default is no query timeout.
+ * error. The timeout is set per connection/session. The default is no query timeout.
  *
  * @param C A Connection object
  * @param ms The query timeout in milliseconds; zero (the default) means there
