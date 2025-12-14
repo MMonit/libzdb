@@ -216,7 +216,7 @@
  * ### PostgreSQL
  *
  * PostgreSQL uses SQLSTATE codes, a five-character standard defined by
- * ISO/IEC 9075. libzdb encodes these as integers.
+ * ISO/IEC 9075. libzdb encodes these as integers in SQLState.h.
  *
  * ```c
  *
