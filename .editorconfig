@@ -17,3 +17,7 @@ tab_width = 8
 [*.{c,re,y,l,h}]
 indent_size = 8
 tab_width = 8
+
+[zdbpp.h]
+indent_size = 4
+tab_width = 4
