@@ -124,6 +124,7 @@
  * statements in a try block must do a return, they **must** do so with
  * this macro instead of the usual C return statement.
  *
+ *
  * ## Recommended: Use TRY-ELSE
  *
  * For most use cases, we recommend using TRY-ELSE rather than TRY-CATCH.
@@ -148,7 +149,9 @@
  * differently. For general error handling where the response is the same
  * regardless of the exception type, TRY-ELSE is the preferred approach.
  *
+ *
  * ## Exception details
+ *
  * Inside an exception handler, details about an exception are
  * available in the variable `Exception_frame`. The following
  * demonstrates usage of this variable to provide detailed logging of an
@@ -173,11 +176,12 @@
  * END_TRY;
  * ```
  *
+ *
  * ## Error codes
  *
  * In addition to the exception message, `Exception_frame.errorCode`
- * provides the numeric error code from the underlying database driver
- * when available. This allows for more robust error handling. For example,
+ * provides the numeric error code from the underlying database when
+ * available. This allows for more robust error handling. For example,
  * to handle a MySQL deadlock:
  *
  * ```c
@@ -203,6 +207,107 @@
  * SQLSTATE values, etc.). A value of 0 typically indicates no specific
  * error code was provided.
  *
+ *
+ * ## Database-Specific Error Codes
+ *
+ * The error code in `Exception_frame.errorCode` is database-specific. Each
+ * database backend provides error codes in their own format:
+ *
+ * ### PostgreSQL
+ *
+ * PostgreSQL uses SQLSTATE codes, a five-character standard defined by
+ * ISO/IEC 9075. libzdb encodes these as integers. Include SQLState.h
+ * to use the predefined constants:
+ *
+ * ```c
+ * #include <zdb/SQLState.h>
+ *
+ * TRY
+ *     Connection_execute(c, sql);
+ * ELSE
+ *     if (Exception_frame.errorCode == SQLSTATE_unique_violation) {
+ *         // Handle duplicate key (SQLSTATE 23505)
+ *     } else if (Exception_frame.errorCode == SQLSTATE_foreign_key_violation) {
+ *         // Handle FK violation (SQLSTATE 23503)
+ *     } else if (Exception_frame.errorCode == SQLSTATE_deadlock_detected) {
+ *         // Handle deadlock - consider retry (SQLSTATE 40P01)
+ *     } else if (Exception_frame.errorCode == SQLSTATE_lock_not_available) {
+ *         // Handle lock timeout - consider retry (SQLSTATE 55P03)
+ *     }
+ * END_TRY;
+ * ```
+ *
+ * For debugging, use SQLState_toString() to convert the code back to
+ * its standard 5-character representation:
+ *
+ * ```c
+ * char sqlstate[6];
+ * SQLState_toString(Exception_frame.errorCode, sqlstate);
+ * printf("SQLSTATE: %s\n", sqlstate);  // e.g., "40P01"
+ * ```
+ *
+ * See: https://www.postgresql.org/docs/current/errcodes-appendix.html
+ *
+ * ### MySQL/MariaDB
+ *
+ * MySQL error codes are native integers from mysql_errno(). Common codes
+ * are defined in MySQL's errmsg.h and mysqld_error.h headers. Examples:
+ *
+ * - 1062 (ER_DUP_ENTRY) - Duplicate entry for key
+ * - 1213 (ER_LOCK_DEADLOCK) - Deadlock found
+ * - 1205 (ER_LOCK_WAIT_TIMEOUT) - Lock wait timeout
+ * - 1452 (ER_NO_REFERENCED_ROW_2) - Foreign key constraint fails
+ *
+ * ```c
+ * #include <mysqld_error.h>  // If available
+ *
+ * TRY
+ *     Connection_execute(c, sql);
+ * ELSE
+ *     if (Exception_frame.errorCode == 1062) {  // ER_DUP_ENTRY
+ *         // Handle duplicate key
+ *     }
+ * END_TRY;
+ * ```
+ *
+ * See: https://dev.mysql.com/doc/mysql-errors/8.0/en/server-error-reference.html
+ *
+ * ### SQLite
+ *
+ * SQLite uses extended error codes from sqlite3_extended_errcode(). These
+ * are defined in sqlite3.h. Examples:
+ *
+ * - SQLITE_CONSTRAINT_UNIQUE (2067) - UNIQUE constraint failed
+ * - SQLITE_CONSTRAINT_PRIMARYKEY (1555) - PRIMARY KEY constraint failed
+ * - SQLITE_CONSTRAINT_FOREIGNKEY (787) - FOREIGN KEY constraint failed
+ * - SQLITE_BUSY (5) - Database is locked
+ * - SQLITE_LOCKED (6) - Database table is locked
+ *
+ * ```c
+ * #include <sqlite3.h>
+ *
+ * TRY
+ *     Connection_execute(c, sql);
+ * ELSE
+ *     if (Exception_frame.errorCode == SQLITE_CONSTRAINT_UNIQUE) {
+ *         // Handle duplicate key
+ *     }
+ * END_TRY;
+ * ```
+ *
+ * See: https://www.sqlite.org/rescode.html
+ *
+ * ### Oracle
+ *
+ * Oracle uses ORA- error numbers. Common codes include:
+ *
+ * - ORA-00001 - Unique constraint violated
+ * - ORA-02292 - Integrity constraint violated - child record found
+ * - ORA-00060 - Deadlock detected while waiting for resource
+ *
+ * The numeric portion (without ORA- prefix) is stored in errorCode.
+ *
+ *
  * ## Volatile and assignment inside a try-block
  *
  * A variable declared outside a try-block and assigned a value inside said
@@ -225,6 +330,7 @@
  * END_TRY;
  * assert(i == 1); // i will be 1 here regardless if it is declared volatile or not
  * ```
+ * 
  *
  * ## Thread-safe
  *

@@ -49,6 +49,7 @@ extern "C" {
 /* ------------------------------------------------- libzdb API interfaces */
 
 #include <SQLException.h>
+#include <SQLState.h>
 #include <URL.h>
 #include <ResultSet.h>
 #include <PreparedStatement.h>

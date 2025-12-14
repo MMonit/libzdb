@@ -8,6 +8,10 @@ Version 3.5.0
 * New: Exception_frame.errorCode provides the numeric error code from
   the underlying database when available. This allows for more robust
   error handling.
+* New: Added SQLState.h interface providing SQLSTATE error code constants
+  for PostgreSQL. Include this header to compare Exception_frame.errorCode
+  against standard PostgreSQL error conditions such as unique_violation,
+  deadlock_detected, etc.
 * New: Add ResultSet_isnullByName() to complement ResultSet_isnull()
 * New: Libzdb now automatically detects and blocks connections to MySQL
   Router, ProxySQL, MariaDB MaxScale, and other MySQL proxies due to

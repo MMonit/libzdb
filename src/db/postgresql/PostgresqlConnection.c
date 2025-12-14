@@ -307,15 +307,16 @@ static PreparedStatement_T _prepareStatement(T C, const char *sql, va_list ap) {
 
 static const char *_getLastError(T C) {
 	assert(C);
-        return C->res ? PQresultErrorMessage(C->res) : "unknown error";
+        return _getSQLErrorMessage(C->res);
 }
 
 
 static int _getLastErrorCode(T C) {
         assert(C);
-        return C->lastError;
+        // Return SQLSTATE if available, otherwise 0
+        // We intentionally do NOT mix in PQresultStatus codes
+        return _getSQLStateErrorCode(C->res);
 }
-
 
 /* ------------------------------------------------------------------------- */
 
