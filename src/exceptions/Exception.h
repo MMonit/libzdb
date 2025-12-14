@@ -216,11 +216,9 @@
  * ### PostgreSQL
  *
  * PostgreSQL uses SQLSTATE codes, a five-character standard defined by
- * ISO/IEC 9075. libzdb encodes these as integers. Include SQLState.h
- * to use the predefined constants:
+ * ISO/IEC 9075. libzdb encodes these as integers.
  *
  * ```c
- * #include <zdb/SQLState.h>
  *
  * TRY
  *     Connection_execute(c, sql);
