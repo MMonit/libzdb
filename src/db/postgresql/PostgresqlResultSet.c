@@ -61,12 +61,11 @@ struct T {
 /* ------------------------------------------------------- Private methods */
 
 
-/* Unescape the buffer pointed to by s 'in-place' using the (un)escape mechanizm
- described at http://www.postgresql.org/docs/9.0/static/datatype-binary.html
- The new size of s is assigned to r. Returns s. See _getBlob()
- below for usage and further info. See also Postgres' PQunescapeBytea() function
- which this function mirrors except it does not allocate a new string.
- */
+// Unescape the buffer pointed to by s 'in-place' using the (un)escape mechanizm
+// described at https://www.postgresql.org/docs/current/datatype-binary.html
+// The new size of s is assigned to r. Returns s. See _getBlob()
+// below for usage and further info. See also Postgres' PQunescapeBytea() function
+// which this function mirrors except it does not allocate a new string.
 static inline const void *_unescape_bytea(uchar_t *s, int len, int *r) {
         assert(s);
         register int i, j;
@@ -186,12 +185,9 @@ static const char *_getString(T R, int columnIndex) {
 }
 
 
-/*
- * As a "hack" to avoid extra allocation and complications by using PQunescapeBytea()
- * we instead unescape the buffer retrieved via PQgetvalue 'in-place'. This should
- * be safe as unescape will only modify internal bytes in the buffer and not change
- * the buffer pointer. See also unescape_bytea() above.
- */
+// As a "hack" to avoid extra allocation by using PQunescapeBytea()
+// we instead unescape the buffer retrieved via PQgetvalue 'in-place'.
+// See unescape_bytea() above.
 static const void *_getBlob(T R, int columnIndex, int *size) {
         assert(R);
         int i = checkAndSetColumnIndex(columnIndex, R->columnCount);
