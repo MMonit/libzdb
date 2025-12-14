@@ -140,6 +140,17 @@ static void testQuery(ConnectionPool& pool) {
 
 static void testException(ConnectionPool& pool) {
     try {
+        // Trying to create the table again should fail
+        Connection con = pool.getConnection();
+        con.execute(std::string(schema.at(pool.getURL().protocol())));
+        std::cout << "Test failed, did not get exception\n";
+        std::exit(1);
+    } catch (const sql_exception& e) {
+        // Assert that we got a proper database error
+        assert(e.error_code != 0);
+    }
+
+    try {
         Connection con = pool.getConnection();
         PreparedStatement p = con.prepareStatement("invalid statement");
         p.execute();

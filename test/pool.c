@@ -481,6 +481,14 @@ static void testPool(const char *testURL) {
                 CATCH(SQLException)
                 {
                         assert(Exception_frame.errorCode != 0);
+                        if (ConnectionPool_getType(pool) == CONNECTIONPOOL_POSTGRESQL) {
+                                char* sqlstate = SQLState_toString(Exception_frame.errorCode, (char[6]){});
+                                assert(STR_DEF(sqlstate));
+                                DEBUG("\t(SQLSTATE code = %s)", sqlstate);
+                        } else {
+                                DEBUG("\t(errorCode = %d)", Exception_frame.errorCode);
+                        }
+                        printf("\n");
                         Connection_close(con);
                 }
                 END_TRY;
@@ -495,7 +503,15 @@ static void testPool(const char *testURL) {
                 CATCH(SQLException)
                 {
                         assert(Exception_frame.errorCode != 0);
-                        printf("ok\n");
+                        printf("ok");
+                        if (ConnectionPool_getType(pool) == CONNECTIONPOOL_POSTGRESQL) {
+                                char* sqlstate = SQLState_toString(Exception_frame.errorCode, (char[6]){});
+                                assert(STR_DEF(sqlstate));
+                                DEBUG("\t(SQLSTATE code = %s)", sqlstate);
+                        } else {
+                                DEBUG("\t(errorCode = %d)", Exception_frame.errorCode);
+                        }
+                        printf("\n");
                         Connection_close(con);
                 }
                 END_TRY;
@@ -512,7 +528,15 @@ static void testPool(const char *testURL) {
                 CATCH(SQLException)
                 {
                         assert(Exception_frame.errorCode != 0);
-                        printf("ok\n");
+                        printf("ok");
+                        if (ConnectionPool_getType(pool) == CONNECTIONPOOL_POSTGRESQL) {
+                                char* sqlstate = SQLState_toString(Exception_frame.errorCode, (char[6]){});
+                                assert(STR_DEF(sqlstate));
+                                DEBUG("\t(SQLSTATE code = %s)", sqlstate);
+                        } else {
+                                DEBUG("\t(errorCode = %d)", Exception_frame.errorCode);
+                        }
+                        printf("\n");
                         Connection_close(con);
                 }
                 END_TRY;
@@ -592,7 +616,15 @@ static void testPool(const char *testURL) {
                 CATCH(SQLException)
                 {
                         assert(Exception_frame.errorCode != 0);
-                        printf("ok\n");
+                        printf("ok");
+                        if (ConnectionPool_getType(pool) == CONNECTIONPOOL_POSTGRESQL) {
+                                char* sqlstate = SQLState_toString(Exception_frame.errorCode, (char[6]){});
+                                assert(STR_DEF(sqlstate));
+                                DEBUG("\t(SQLSTATE code = %s)", sqlstate);
+                        } else {
+                                DEBUG("\t(errorCode = %d)", Exception_frame.errorCode);
+                        }
+                        printf("\n");
                         Connection_close(con);
                 }
                 END_TRY;
