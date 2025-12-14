@@ -62,7 +62,7 @@
 		52C32F54145BABE200C72758 /* unit.c in Sources */ = {isa = PBXBuildFile; fileRef = 52788C2313E716A0002F3C7C /* unit.c */; };
 		52C32F55145BABEC00C72758 /* libzdb.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 528F4D3C145A5AA3002CD67D /* libzdb.dylib */; };
 		52C32F58145BD12800C72758 /* Mem.c in Sources */ = {isa = PBXBuildFile; fileRef = 52C32F56145BD12800C72758 /* Mem.c */; };
-		52D1E5DC2EEE72AE006E1488 /* libzdb-oracle.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 528F116C2EEB3479005388DE /* libzdb-oracle.dylib */; };
+		52D1E5DF2EEE7538006E1488 /* libzdb.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 528F4D3C145A5AA3002CD67D /* libzdb.dylib */; };
 		52DE1E08223489BE00173D1B /* SQLiteConnection.c in Sources */ = {isa = PBXBuildFile; fileRef = 52788C0013E716A0002F3C7C /* SQLiteConnection.c */; };
 		52DE1E09223489BE00173D1B /* SQLitePreparedStatement.c in Sources */ = {isa = PBXBuildFile; fileRef = 52788C0213E716A0002F3C7C /* SQLitePreparedStatement.c */; };
 		52DE1E0A223489BE00173D1B /* SQLiteResultSet.c in Sources */ = {isa = PBXBuildFile; fileRef = 52788C0413E716A0002F3C7C /* SQLiteResultSet.c */; };
@@ -151,12 +151,12 @@
 			remoteGlobalIDString = 52F236FD13E724D600D24B82;
 			remoteInfo = libzdb;
 		};
-		52D1E5DD2EEE72BB006E1488 /* PBXContainerItemProxy */ = {
+		52D1E5E02EEE7542006E1488 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 521CF21713E71619004A7291 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 528F11452EEB3479005388DE;
-			remoteInfo = "libzdb-oracle";
+			remoteGlobalIDString = 52F236FD13E724D600D24B82;
+			remoteInfo = libzdb;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -351,7 +351,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				52D1E5DC2EEE72AE006E1488 /* libzdb-oracle.dylib in Frameworks */,
+				52D1E5DF2EEE7538006E1488 /* libzdb.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -719,7 +719,7 @@
 			buildRules = (
 			);
 			dependencies = (
-				52D1E5DE2EEE72BB006E1488 /* PBXTargetDependency */,
+				52D1E5E12EEE7542006E1488 /* PBXTargetDependency */,
 			);
 			name = zdbpp;
 			productName = pool;
@@ -1048,10 +1048,10 @@
 			target = 52F236FD13E724D600D24B82 /* libzdb */;
 			targetProxy = 52C32F52145BABCF00C72758 /* PBXContainerItemProxy */;
 		};
-		52D1E5DE2EEE72BB006E1488 /* PBXTargetDependency */ = {
+		52D1E5E12EEE7542006E1488 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 528F11452EEB3479005388DE /* libzdb-oracle */;
-			targetProxy = 52D1E5DD2EEE72BB006E1488 /* PBXContainerItemProxy */;
+			target = 52F236FD13E724D600D24B82 /* libzdb */;
+			targetProxy = 52D1E5E02EEE7542006E1488 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
