@@ -67,18 +67,6 @@
  * up the call-stack and unless a previous installed handler catch the
  * exception, it will cause the application to abort.
  *
- * Here's a concrete example calling a method in the libzdb API which may throw
- * an exception. If the method Connection_execute() fails it will throw an
- * SQLException. The CATCH statement will catch this exception, if thrown,
- * and log an error message
- * ```c
- * TRY
- *      Connection_execute(c, sql);
- * CATCH(SQLException)
- *      log("SQL error: %s\n", Connection_getLastError(c));
- * END_TRY;
- * ```
- *
  * The TRY-FINALLY statement is similar to TRY-CATCH but in addition
  * adds a FINALLY clause which is always executed, regardless if an exception
  * was raised or not. The syntax of the TRY-FINALLY statement is,

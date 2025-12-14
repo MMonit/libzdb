@@ -47,10 +47,10 @@
  *
  * ```c
  * TRY
- *     Connection_execute(conn, "INSERT INTO users (email) VALUES (?)", email);
+ *     Connection_execute(con, "INSERT INTO users (ssn)...");
  * ELSE
  *     if (Exception_frame.errorCode == SQLSTATE_unique_violation) {
- *         printf("Email already exists\n");
+ *         printf("SSN already exists\n");
  *     } else if (Exception_frame.errorCode == SQLSTATE_foreign_key_violation) {
  *         printf("Referenced record not found\n");
  *     } else if (Exception_frame.errorCode == SQLSTATE_deadlock_detected) {
