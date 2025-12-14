@@ -219,7 +219,7 @@ namespace zdb {
     
     namespace { // private
         // @cond hide
-        #define except_wrapper(f) TRY { f; } ELSE { throw sql_exception(Exception_frame.message); } END_TRY
+        #define except_wrapper(f) TRY { f; } ELSE { throw sql_exception(Exception_frame.message, Exception_frame.errorCode); } END_TRY
         
         constexpr std::optional<std::string_view> _to_optional(const char* str) noexcept {
             return str ? std::optional<std::string_view>{str} : std::nullopt;
@@ -259,27 +259,31 @@ namespace zdb {
     /**
      * @brief Exception class for SQL related errors.
      *
-     * Thrown for SQL errors. Inherits from `std::runtime_error`.
+     * Thrown for API and SQL errors. Inherits from `std::runtime_error`.
      *
      * Example:
      * @code
      * try {
      *     con.executeQuery("invalid query");
      * } catch (const zdb::sql_exception& e) {
-     *     std::cout << "SQL error: " << e.what() << std::endl;
+     *     std::cout << "SQL error (" << e.error_code << "): " << e.what() << std::endl;
      * }
      * @endcode
      */
     class sql_exception : public std::runtime_error {
     public:
+        // Database specific error code, 0 if not set
+        const int error_code;
+        
         /**
          * @brief Constructs a new sql_exception with an optional error message.
          * @param msg A C-string representing the error message. Defaults to "SQLException".
+         * @param code A database error code (defaults to 0 if not provided).
          */
-        explicit sql_exception(const char* msg = "SQLException") : std::runtime_error(msg) {}
+        explicit sql_exception(const char* msg = "SQLException", int code = 0)
+        : std::runtime_error(msg), error_code(code) {}
     };
-    
-    
+        
     /**
      * @class URL
      * @brief Represents an immutable Uniform Resource Locator.
