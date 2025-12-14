@@ -56,7 +56,7 @@ static const char kBase36Digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 
 int SQLState_toInt(const char *sqlstate) {
-        if (! sqlstate)
+        if (STR_UNDEF(sqlstate))
                 return 0;
         int result = 0;
         for (int i = 0; i < 5; i++) {
