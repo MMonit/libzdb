@@ -26,7 +26,7 @@
 #define SQLSTATE_INCLUDED
 
 /**
- * @brief **SQLSTATE** provides PostgreSQL error codes for use with libzdb.
+ * @brief **SQLState** provides PostgreSQL error codes for use with libzdb.
  *
  * This interface provides SQLSTATE error code constants for PostgreSQL. When
  * using libzdb with PostgreSQL, `Exception_frame.errorCode` will contain
