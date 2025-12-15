@@ -3,12 +3,12 @@
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 3.
- * 
+ *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
- * 
+ *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  *
@@ -87,12 +87,7 @@ bool Str_startsWith(const char *a, const char *b) {
 char *Str_sub(const char *a, const char *b) {
         if (!a || !STR_DEF(b))
                 return NULL;
-        size_t b_len = strlen(b);
-        for (; *a; a++) {
-                if (strncasecmp(a, b, b_len) == 0)
-                        return (char *)a;
-        }
-        return NULL;
+        return strcasestr(a, b);
 }
 
 
@@ -108,19 +103,19 @@ bool Str_member(const char *s, const char **set) {
 
 
 char *Str_copy(char *dest, const char *src, int n) {
-	if (src && dest && (n > 0)) { 
-        	char *t = dest;
-	        while (*src && n--)
-        		*t++ = *src++;
-        	*t = 0;
-	} else if (dest)
-	        *dest = 0;
+        if (src && dest && (n > 0)) {
+                char *t = dest;
+                while (*src && n--)
+                        *t++ = *src++;
+                *t = 0;
+        } else if (dest)
+                *dest = 0;
         return dest;
 }
 
 
 // We do not use strdup so we can throw MemoryException on OOM
-char *Str_dup(const char *s) { 
+char *Str_dup(const char *s) {
         char *t = NULL;
         if (s) {
                 size_t n = strlen(s) + 1;
@@ -135,7 +130,7 @@ char *Str_ndup(const char *s, int n) {
         char *t = NULL;
         assert(n >= 0);
         if (s) {
-                int l = (int)strlen(s); 
+                int l = (int)strlen(s);
                 n = l < n ? l : n; // Use the actual length of s if shorter than n
                 t = ALLOC(n + 1);
                 memcpy(t, s, n);
@@ -146,14 +141,14 @@ char *Str_ndup(const char *s, int n) {
 
 
 char *Str_cat(const char *s, ...) {
-	char *t = 0;
-	if (s) {
+        char *t = 0;
+        if (s) {
                 va_list ap;
                 va_start(ap, s);
                 t = Str_vcat(s, ap);
                 va_end(ap);
         }
-	return t;
+        return t;
 }
 
 
@@ -174,38 +169,38 @@ char *Str_vcat(const char *s, va_list ap) {
 
 
 int Str_parseInt(const char *s) {
-	if (STR_UNDEF(s))
-		THROW(SQLException, "NumberFormatException: For input string null");
+        if (STR_UNDEF(s))
+                THROW(SQLException, "NumberFormatException: For input string null");
         errno = 0;
         char *e;
-	int i = (int)strtol(s, &e, 10);
-	if (errno || (e == s))
-		THROW(SQLException, "NumberFormatException: For input string %s -- %s", s, System_getLastError());
-	return i;
+        int i = (int)strtol(s, &e, 10);
+        if (errno || (e == s))
+                THROW(SQLException, "NumberFormatException: For input string %s -- %s", s, System_getLastError());
+        return i;
 }
 
 
 long long Str_parseLLong(const char *s) {
-	if (STR_UNDEF(s))
-		THROW(SQLException, "NumberFormatException: For input string null");
+        if (STR_UNDEF(s))
+                THROW(SQLException, "NumberFormatException: For input string null");
         errno = 0;
         char *e;
-	long long ll = strtoll(s, &e, 10);
-	if (errno || (e == s))
-		THROW(SQLException, "NumberFormatException: For input string %s -- %s", s, System_getLastError());
-	return ll;
+        long long ll = strtoll(s, &e, 10);
+        if (errno || (e == s))
+                THROW(SQLException, "NumberFormatException: For input string %s -- %s", s, System_getLastError());
+        return ll;
 }
 
 
 double Str_parseDouble(const char *s) {
-	if (STR_UNDEF(s))
-		THROW(SQLException, "NumberFormatException: For input string null");
+        if (STR_UNDEF(s))
+                THROW(SQLException, "NumberFormatException: For input string null");
         errno = 0;
         char *e;
-	double d = strtod(s, &e);
-	if (errno || (e == s))
-		THROW(SQLException, "NumberFormatException: For input string %s -- %s", s, System_getLastError());
-	return d;
+        double d = strtod(s, &e);
+        if (errno || (e == s))
+                THROW(SQLException, "NumberFormatException: For input string %s -- %s", s, System_getLastError());
+        return d;
 }
 
 
