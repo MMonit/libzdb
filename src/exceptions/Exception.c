@@ -56,7 +56,7 @@ T SQLException = {"SQLException"};
 T AssertException = {"AssertException"};
 T MemoryException = {"MemoryException"};
 /* Thread specific Exception stack */
-ThreadData_T Exception_stack;
+ThreadData_T Exception_Stack;
 #ifdef ZILD_PACKAGE_PROTECTED
 #pragma GCC visibility pop
 #endif
@@ -66,7 +66,7 @@ static Once_T once_control = PTHREAD_ONCE_INIT;
 /* -------------------------------------------------------- Privat methods */
 
 
-static void init_once(void) { ThreadData_create(Exception_stack, NULL); }
+static void init_once(void) { ThreadData_create(Exception_Stack, NULL); }
 
 
 /* ----------------------------------------------------- Protected methods */
@@ -77,7 +77,7 @@ static void init_once(void) { ThreadData_create(Exception_stack, NULL); }
 #endif
 
 void Exception_init(void) { Thread_once(once_control, init_once); }
-void Exception_reset(void) { ThreadData_set(Exception_stack, NULL); }
+void Exception_reset(void) { ThreadData_set(Exception_Stack, NULL); }
 
 #ifdef PACKAGE_PROTECTED
 #pragma GCC visibility pop
@@ -90,7 +90,7 @@ void Exception_reset(void) { ThreadData_set(Exception_stack, NULL); }
 #ifndef ZILD_PACKAGE_PROTECTED
 
 void Exception_throw(const T *e, int errorCode, const char *func, const char *file, int line, const char *message) {
-        Exception_Frame *p = ThreadData_get(Exception_stack);
+        Exception_Frame *p = ThreadData_get(Exception_Stack);
         assert(e);
         if (p) {
                 p->exception = e;
