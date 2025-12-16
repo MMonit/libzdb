@@ -186,7 +186,7 @@
  *     // Connection is automatically returned to pool when it goes out of scope
  *     // If an exception occurred before commit, it will automatically rollback
  * } catch (const sql_exception& e) {
- *     std::cerr << "Transfer failed: " << e.what() << std::endl;
+ *     std::cerr << "Transfer failed (" << e.error_code << "): << e.what() << std::endl;
  * }
  * ```
  * Key points about exception handling in this library:
@@ -255,35 +255,60 @@ namespace zdb {
         // @endcond
     } // anonymous namespace
     
-    
     /**
      * @brief Exception class for SQL related errors.
      *
      * Thrown for API and SQL errors. Inherits from `std::runtime_error`.
      *
-     * Example:
+     * The `error_code` member provides the native error code from the underlying
+     * database, enabling programmatic error handling such as retry logic for
+     * deadlocks or special handling for constraint violations. Error codes are
+     * database-specific:
+     *
+     * - **PostgreSQL**: SQLSTATE codes encoded as integers (use constants from SQLState.h)
+     * - **MySQL/MariaDB**: Native error codes from `mysql_errno()` (include `<mysqld_error.h>`)
+     * - **SQLite**: Extended error codes (include `<sqlite3.h>`)
+     * - **Oracle**: ORA- error numbers (numeric portion only)
+     *
+     * Example (PostgreSQL):
      * @code
      * try {
-     *     con.executeQuery("invalid query");
+     *     con.execute("INSERT INTO users (ssn)...");
      * } catch (const zdb::sql_exception& e) {
-     *     std::cout << "SQL error (" << e.error_code << "): " << e.what() << std::endl;
+     *     if (e.error_code == SQLSTATE_unique_violation) {
+     *         // Handle duplicate key
+     *     } else if (e.error_code == SQLSTATE_foreign_key_violation) {
+     *         // Handle FK constraint failure
+     *     } else if (e.error_code == SQLSTATE_deadlock_detected) {
+     *         // Retry transaction
+     *     } else {
+     *         std::cerr << "Error (" << e.error_code << "): " << e.what() << std::endl;
+     *     }
      * }
      * @endcode
+     *
+     * For MySQL, SQLite, and Oracle, include the respective database header
+     * with error codes or use numeric codes directly.
      */
     class sql_exception : public std::runtime_error {
     public:
-        // Database specific error code, 0 if not set
+        /**
+        * @brief Native error code from the underlying database.
+        *
+        * The value is `0` if no specific error code was provided. Consult your
+        * database's documentation for code meanings.
+        */
         const int error_code;
         
         /**
-         * @brief Constructs a new sql_exception with an optional error message.
-         * @param msg A C-string representing the error message. Defaults to "SQLException".
-         * @param code A database error code (defaults to 0 if not provided).
-         */
+        * @brief Constructs a new sql_exception.
+        * @param msg Error message (defaults to "SQLException")
+        * @param code Database-specific error code (defaults to 0)
+        */
         explicit sql_exception(const char* msg = "SQLException", int code = 0)
         : std::runtime_error(msg), error_code(code) {}
     };
-        
+
     /**
      * @class URL
      * @brief Represents an immutable Uniform Resource Locator.
@@ -1368,8 +1393,7 @@ namespace zdb {
          * @brief Sets the query timeout for this Connection.
          *
          * If the limit is exceeded, the statement will return immediately with an error.
-         * The timeout is set per connection/session. Not all database systems
-         * support query timeout. The default is no query timeout.
+         * The timeout is set per connection/session. The default is no query timeout.
          *
          * @param ms Timeout in milliseconds.
          */
