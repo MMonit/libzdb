@@ -329,7 +329,6 @@
 		52931A3D1DC2D6710032240D /* oracleoptions.html */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = text.html; path = oracleoptions.html; sourceTree = "<group>"; tabWidth = 4; };
 		52931A3E1DC2D6710032240D /* libzdboptions.css */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.css; path = libzdboptions.css; sourceTree = "<group>"; };
 		529FECB02D15E89900C87F6D /* exception */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = exception; sourceTree = BUILT_PRODUCTS_DIR; };
-		52A73C442C4B6140003F4A87 /* HOWTO.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = HOWTO.md; sourceTree = "<group>"; };
 		52C32EE9145BA3A500C72758 /* Time.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Time.h; sourceTree = "<group>"; };
 		52C32EEB145BA3F900C72758 /* System.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = System.c; sourceTree = "<group>"; tabWidth = 8; };
 		52C32EEC145BA3FA00C72758 /* System.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = System.h; sourceTree = "<group>"; };
@@ -473,7 +472,6 @@
 				52788BD413E716A0002F3C7C /* api-docs */,
 				52788BD813E716A0002F3C7C /* LICENSE.pdf */,
 				52788BD913E716A0002F3C7C /* THIRDPARTY-LICENSE */,
-				52A73C442C4B6140003F4A87 /* HOWTO.md */,
 			);
 			path = doc;
 			sourceTree = "<group>";
