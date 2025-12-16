@@ -58,6 +58,7 @@ struct T {
         MYSQL_STMT *stmt;
         MYSQL_BIND *bind;
         int parameterCount;
+        long long affectedRows;
         Connection_T delegator;
 };
 #if MYSQL_VERSION_ID < 80000 || MARIADB_VERSION_ID
@@ -187,6 +188,7 @@ static void _setBlob(T P, int parameterIndex, const void *x, int size) {
 
 static void _execute(T P) {
         assert(P);
+        P->affectedRows = 0;
         if (P->parameterCount > 0) {
                 if ((P->lastError = mysql_stmt_bind_param(P->stmt, P->bind))) {
                         THROW_SQL(mysql_stmt_errno(P->stmt), "%s", mysql_stmt_error(P->stmt));
@@ -200,6 +202,17 @@ static void _execute(T P) {
                 THROW_SQL(mysql_stmt_errno(P->stmt), "%s", mysql_stmt_error(P->stmt));
         }
         if (P->lastError == MYSQL_OK) {
+                /*
+                 * Capture affected rows BEFORE reset. We call mysql_stmt_reset()
+                 * to free server resources and ensure clean state for statement
+                 * reuse. However, MariaDB's libmariadb clears the internal
+                 * upsert_status on reset, causing mysql_stmt_affected_rows() to
+                 * return -1 after the reset call. MySQL's libmysqlclient does not
+                 * exhibit this behavior. By caching the value here, we ensure
+                 * consistent behavior across both client libraries.
+                 */
+                P->affectedRows = (long long)mysql_stmt_affected_rows(P->stmt);
+
                 /* Discard prepared param data in client/server */
                 P->lastError = mysql_stmt_reset(P->stmt);
         }
@@ -229,7 +242,7 @@ static ResultSet_T _executeQuery(T P) {
 
 static long long _rowsChanged(T P) {
         assert(P);
-        return (long long)mysql_stmt_affected_rows(P->stmt);
+        return P->affectedRows;
 }
 
 
