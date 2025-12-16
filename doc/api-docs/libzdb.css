@@ -5,7 +5,7 @@ body,div,p,dl, .memname, .memberdecls, .params, .paramname, .tparams, .exception
 h1, h2, h3, h4 {color: rgba(1,1,1,.8);}
 #nav-path {display:none;}
 h2:first-of-type {margin-top:2px; border:none;}
-h2.groupheader {font-size:26px; line-height:28px;color:#286796;}
+h2.groupheader {font-size:28px; line-height:28px;color:#286796;box-shadow:none;}
 h2.desc, h2 {font-weight:lighter; margin-top:1em;}
 div.groupheader { font-weight:600; font-size:18px;color: rgb(51, 51, 51);}
 h3 {font-size:20px; font-weight:lighter;}
