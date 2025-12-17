@@ -273,7 +273,7 @@ namespace zdb {
      * Example (PostgreSQL):
      * @code
      * try {
-     *     con.execute("INSERT INTO users (ssn)...");
+     *     con.execute(sql);
      * } catch (const zdb::sql_exception& e) {
      *     if (e.error_code == SQLSTATE_unique_violation) {
      *         // Handle duplicate key
