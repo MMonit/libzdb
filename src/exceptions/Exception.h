@@ -324,7 +324,7 @@
  * TRY
  * {
  *      i = 1;
- *      TRHOW(SQLException, "SQLException");
+ *      THROW(SQLException, "SQLException");
  * }
  * ELSE
  * {
