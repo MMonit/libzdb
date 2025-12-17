@@ -1077,7 +1077,7 @@ namespace zdb {
      *     con.commit();
      * } catch (const sql_exception& e) {
      *     con.rollback();
-     *     std::cerr << "Database error: " << e.what() << std::endl;
+     *     std::cerr << "Database error (" << e.error_code << "): << e.what() << std::endl;
      * }
      * ```
      *
@@ -1343,7 +1343,7 @@ namespace zdb {
      *     std::cout << "Transfer successful" << std::endl;
      * } catch (const sql_exception& e) {
      *     // See note below why we don't have to explicit call rollback here
-     *     std::cerr << "Transfer failed: " << e.what() << std::endl;
+     *     std::cerr << "Transfer failed (" << e.error_code << "): << e.what() << std::endl;
      * }
      * @endcode
      *
@@ -1976,7 +1976,7 @@ namespace zdb {
          * called after start, the changes will take effect on the next sweep cycle.
          *
          * @param sweepInterval Number of seconds between sweeps of the reaper thread.
-         *        Set to 0 or a negative value to disable the reaper thread, _before_
+         *        Set to 0 or a negative value to disable the reaper thread, **before**
          *        calling ConnectionPool::start().
          */
         void setReaper(int sweepInterval) noexcept {

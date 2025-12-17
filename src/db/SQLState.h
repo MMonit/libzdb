@@ -58,7 +58,7 @@
  *     } else if (Exception_frame.errorCode == SQLSTATE_lock_not_available) {
  *         printf("Lock timeout - consider retry\n");
  *     } else {
- *         printf("Database error: %s\n", Exception_frame.message);
+ *         printf("Database error (%d): %s\n", Exception_frame.errorCode, Exception_frame.message);
  *     }
  * END_TRY;
  * ```

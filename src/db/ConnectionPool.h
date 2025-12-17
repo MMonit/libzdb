@@ -415,7 +415,7 @@ void ConnectionPool_setAbortHandler(T P, void(*abortHandler)(const char *error))
  *
  * @param P A ConnectionPool object
  * @param sweepInterval Number of seconds between sweeps of the reaper thread.
- *        Set to 0 or a negative value to disable the reaper thread, _before_
+ *        Set to 0 or a negative value to disable the reaper thread, **before**
  *        calling ConnectionPool_start().
  */
 void ConnectionPool_setReaper(T P, int sweepInterval);
@@ -483,6 +483,11 @@ void ConnectionPool_stop(T P);
  * }
  * ```
  *
+ * @note The error-checking pattern above is somewhat cumbersome. If error
+ * handling is a concern, we recommend using ConnectionPool_getConnectionOrException()
+ * instead, which throws an SQLException with a clear error message indicating
+ * whether the pool was full or a database error occurred.
+ *
  * @param P A ConnectionPool object
  * @return A connection from the pool or NULL if a database error occurred.
  * @see Connection.h
@@ -513,7 +518,7 @@ Connection_T ConnectionPool_getConnection(T P);
  * {
  *     // The error message in Exception_frame.message will specify
  *     // if the pool was full or the database error that occured
- *     fprintf(stderr, "Error: %s\n", Exception_frame.message);
+ *     fprintf(stderr, "Error (%d): %s\n", Exception_frame.errorCode, Exception_frame.message);
  * }
  * FINALLY
  * {

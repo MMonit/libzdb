@@ -88,7 +88,7 @@
  * ELSE
  * {
  *     // The error message in Exception_frame.message specify the error that occured
- *     printf("Transfer failed: %s\n", Exception_frame.message);
+ *     printf("Transfer failed (%d): %s\n", Exception_frame.errorCode, Exception_frame.message);
  *
  *     // Connection_close() will automatically call Connection_rollback() if
  *     // the connection is in an uncommitted transaction
