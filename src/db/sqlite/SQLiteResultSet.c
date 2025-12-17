@@ -152,7 +152,7 @@ static time_t _getTimestamp(T R, int columnIndex) {
         if (sqlite3_column_type(R->stmt, i) == SQLITE_INTEGER)
                 return (time_t)sqlite3_column_int64(R->stmt, i);
         // Not an integer storage class, try parse as time string
-        return Time_toTimestamp(sqlite3_column_text(R->stmt, i));
+        return Time_toTimestamp((const char*)sqlite3_column_text(R->stmt, i));
 }
 
 
@@ -164,7 +164,7 @@ static struct tm *_getDateTime(T R, int columnIndex, struct tm *tm) {
                 if (gmtime_r(&utc, tm)) tm->tm_year += 1900; // Use year literal
         } else {
                 // Not an integer storage class, try parse as time string
-                Time_toDateTime(sqlite3_column_text(R->stmt, i), tm);
+                Time_toDateTime((const char*)sqlite3_column_text(R->stmt, i), tm);
         }
         return tm;
 }
