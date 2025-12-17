@@ -41,7 +41,8 @@
 #define ThreadData_T pthread_key_t
 #define _trapper(F) do { int status=(F); \
         if (status!=0 && status!=ETIMEDOUT) \
-            ABORT("Thread: %s\n", System_getError(status)); \
+                Exception_vthrow(&AssertException, 0, __func__, __FILE__, __LINE__,\
+                        "%s -- %s", #F, System_getError(status)); \
         } while (0)
 #define Thread_create(thread, threadFunc, threadArgs) \
         _trapper(pthread_create(&thread, NULL, threadFunc, (void*)threadArgs))
