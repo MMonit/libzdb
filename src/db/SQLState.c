@@ -49,10 +49,10 @@
 /* ----------------------------------------------------------- Definitions */
 
 
-static const char kBase36Digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+static const char _kBase36Digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 
-/* --------------------------------------------------------- Public methods */
+/* -------------------------------------------------------- Public methods */
 
 
 int SQLState_toInt(const char *sqlstate) {
@@ -82,7 +82,7 @@ char *SQLState_toString(int code, char buf[static 6]) {
                 return NULL;
         }
         for (int i = 4; i >= 0; i--) {
-                buf[i] = kBase36Digits[code % 36];
+                buf[i] = _kBase36Digits[code % 36];
                 code /= 36;
         }
         buf[5] = '\0';
