@@ -55,10 +55,10 @@ T SQLException = {"SQLException"};
 #endif
 T AssertException = {"AssertException"};
 T MemoryException = {"MemoryException"};
-/* Thread specific Exception stack */
 #ifdef ZILD_PACKAGE_PROTECTED
 #pragma GCC visibility pop
 #endif
+/* Thread specific Exception stack for libzdb */
 ThreadData_T Exception_stack;
 static Once_T once_control = PTHREAD_ONCE_INIT;
 
