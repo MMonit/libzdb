@@ -39,7 +39,7 @@
 #define Mutex_T pthread_mutex_t
 #define Once_T pthread_once_t
 #define ThreadData_T pthread_key_t
-#define _trapper(F) do { int status=F; \
+#define _trapper(F) do { int status=(F); \
         if (status!=0 && status!=ETIMEDOUT) \
             ABORT("Thread: %s\n", System_getError(status)); \
         } while (0)

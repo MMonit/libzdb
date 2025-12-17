@@ -377,13 +377,13 @@ struct Exception_Frame {
         char message[EXCEPTION_MESSAGE_LENGTH + 1];
 };
 enum { Exception_entered=0, Exception_thrown, Exception_handled, Exception_finalized };
-extern pthread_key_t Exception_Stack;
+extern pthread_key_t Exception_stack;
 void Exception_init(void);
 void Exception_reset(void);
 void Exception_vthrow(const T *e, int errorCode, const char *func, const char *file, int line, const char *cause, ...) CLANG_ANALYZER_NORETURN;
 void Exception_throw(const T *e, int errorCode, const char *func, const char *file, int line, const char *message) CLANG_ANALYZER_NORETURN;
 
-#define pop_exception_stack pthread_setspecific(Exception_Stack, ((Exception_Frame*)pthread_getspecific(Exception_Stack))->prev)
+#define pop_exception_stack pthread_setspecific(Exception_stack, ((Exception_Frame*)pthread_getspecific(Exception_stack))->prev)
 /** @endcond */
 
 
@@ -434,8 +434,8 @@ void Exception_throw(const T *e, int errorCode, const char *func, const char *fi
         volatile int Exception_flag; \
         Exception_Frame Exception_frame = {}; \
         Exception_frame.message[0] = 0; \
-        Exception_frame.prev = (Exception_Frame*)pthread_getspecific(Exception_Stack); \
-        pthread_setspecific(Exception_Stack, &Exception_frame); \
+        Exception_frame.prev = (Exception_Frame*)pthread_getspecific(Exception_stack); \
+        pthread_setspecific(Exception_stack, &Exception_frame); \
         Exception_flag = sigsetjmp(Exception_frame.env, 0); \
         if (Exception_flag == Exception_entered) {
                 
