@@ -41,7 +41,10 @@
  * @return true if s is defined, otherwise false
  * @hideinitializer
  */
-#define STR_DEF(s) ((s) && *(s))
+#define STR_DEF(s) ({ \
+    __typeof__((s)[0]) *_str_def = (s); \
+    _str_def && *_str_def; \
+})
 
 
 /**
