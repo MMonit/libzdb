@@ -318,7 +318,7 @@
  * accessed from an exception handler. Otherwise the compiler will/may
  * optimize away the value set in the try-block and the handler will not see
  * the new value. Declaring the variable volatile is only necessary
- * if the variable is to be used inside a CATCH or ELSE block. Example:
+ * if the variable is to be used inside a CATCH, ELSE, or FINALLY block. Example:
  * ```c
  * volatile int i = 0;
  * TRY
