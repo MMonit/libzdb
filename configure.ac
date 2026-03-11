@@ -8,7 +8,7 @@ AC_SUBST([VERSION_MINOR], [`echo $PACKAGE_VERSION | cut -d. -f2`])
 AC_SUBST([VERSION_REVISION], [`echo $PACKAGE_VERSION | cut -d. -f3`])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE
+AM_INIT_AUTOMAKE([subdir-objects])
 AC_CONFIG_SRCDIR([src/Config.h])
 AC_CONFIG_COMMANDS([libtool_patch],[test `uname` = "OpenBSD" && perl -p -i -e "s/deplibs_check_method=.*/deplibs_check_method=pass_all/g" libtool])
 
@@ -103,6 +103,49 @@ AC_CHECK_HEADERS([stdint.h stdbool.h], [], [AC_MSG_ERROR([toolchain does not hav
 
 # Check for C11 atomic operations support
 AC_CHECK_HEADERS([stdatomic.h], [], [AC_MSG_ERROR([toolchain does not support C11 atomic operations])])
+
+# ------------------------------------------------------------------------
+# AddressSanitizer
+# ------------------------------------------------------------------------
+
+AC_MSG_CHECKING([for AddressSanitizer support])
+AC_ARG_WITH(asan,
+    [  --with-asan             enable the use of AddressSanitizer (default: disabled)],
+    [
+        dnl Check the withvalue
+        if test "x$withval" = "xno" ; then
+            asan=false
+            AC_MSG_RESULT([disabled])
+        fi
+        if test "x$withval" = "xyes" ; then
+            asan=true
+            AC_MSG_RESULT([enabled])
+        fi
+    ],
+    [
+        asan=false
+        AC_MSG_RESULT([disabled])
+    ]
+)
+
+if test "$asan" = "true"; then
+        AX_CHECK_COMPILE_FLAG([-fsanitize=address], [CFLAGS="$CFLAGS -fsanitize=address"])
+        AX_CHECK_COMPILE_FLAG([-fno-omit-frame-pointer], [CFLAGS="$CFLAGS -fno-omit-frame-pointer"])
+        AX_CHECK_COMPILE_FLAG([-fsanitize=bool], [CFLAGS="$CFLAGS -fsanitize=bool"])
+        AX_CHECK_COMPILE_FLAG([-fsanitize=enum], [CFLAGS="$CFLAGS -fsanitize=enum"])
+        AX_CHECK_COMPILE_FLAG([-fsanitize=float-divide-by-zero], [CFLAGS="$CFLAGS -fsanitize=float-divide-by-zero"])
+        AX_CHECK_COMPILE_FLAG([-fsanitize-address-use-after-scope], [CFLAGS="$CFLAGS -fsanitize-address-use-after-scope"])
+        AX_CHECK_COMPILE_FLAG([-fsanitize=signed-integer-overflow], [CFLAGS="$CFLAGS -fsanitize=signed-integer-overflow"])
+        AX_CHECK_COMPILE_FLAG([-fsanitize=vla-bound], [CFLAGS="$CFLAGS -fsanitize=vla-bound"])
+        AX_CHECK_COMPILE_FLAG([-fsanitize=bounds-strict], [CFLAGS="$CFLAGS -fsanitize=bounds-strict"])
+        AX_CHECK_COMPILE_FLAG([-fsanitize=null], [CFLAGS="$CFLAGS -fsanitize=null "])
+        AX_CHECK_COMPILE_FLAG([-fsanitize=object-size], [CFLAGS="$CFLAGS -fsanitize=object-size"])
+        AX_CHECK_COMPILE_FLAG([-fsanitize=undefined], [CFLAGS="$CFLAGS -fsanitize=undefined"])
+        AC_DEFINE([HAVE_ASAN], 1, [Define to 1 if you have address sanitizer.])
+else
+        # enable fortification level 2
+        CFLAGS="$CFLAGS -D_FORTIFY_SOURCE=2"
+fi
 
 # ---------------------------------------------------------------------------
 # Programs
@@ -517,6 +560,7 @@ AX_INFO_TITLE([Libzdb is configured as follows])
 AX_INFO_ENABLED([Optimized:],        [test $OPTIMIZED -eq 1])
 AX_INFO_ENABLED([Protected:],        [test $PROTECT -eq 1 -o $ZILD_PROTECT -eq 1])
 AX_INFO_ENABLED([Profiling:],        [test $PROFILE -eq 1])
+AX_INFO_ENABLED([AddressSanitizer:], [test "xfalse" != "x$asan"])
 AX_INFO_ENABLED([Zild:],             [test $ZILD_PROTECT -eq 1])
 AX_INFO_ENABLED([Sqlite3 unlock:],   [test $SQLITEUNLOCK -eq 1])
 AX_INFO_ENABLED([Openssl:],          [test $OPENSSL -eq 1])
