@@ -108,10 +108,11 @@
  * afterwards.
  *
  * Finally, the RETURN statement, defined in this interface, must be used
- * instead of C return statements inside a try-block. If any of the
+ * instead of C return statements inside a try block. If any of the
  * statements in a try block must do a return, they **must** do so with
- * this macro instead of the usual C return statement.
- *
+ * this macro instead of the usual C return statement. Note that RETURN is
+ * just a wrapper around return, and subsequent CATCH, ELSE, or FINALLY blocks
+ * are not executed if RETURN is called.
  *
  * ## Recommended: Use TRY-ELSE
  *
