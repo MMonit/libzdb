@@ -76,7 +76,7 @@ int SQLState_toInt(const char *sqlstate) {
 }
 
 
-char *SQLState_toString(int code, char buf[static 6]) {
+char *SQLState_toString(int code, char *buf) {
         if (code <= 0) {
                 buf[0] = '\0';
                 return NULL;
