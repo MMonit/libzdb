@@ -108,10 +108,11 @@
  * afterwards.
  *
  * Finally, the RETURN statement, defined in this interface, must be used
- * instead of C return statements inside a try-block. If any of the
+ * instead of C return statements inside a try block. If any of the
  * statements in a try block must do a return, they **must** do so with
- * this macro instead of the usual C return statement.
- *
+ * this macro instead of the usual C return statement. Note that RETURN is
+ * just a wrapper around return, and subsequent CATCH, ELSE, or FINALLY blocks
+ * are not executed if RETURN is called.
  *
  * ## Recommended: Use TRY-ELSE
  *
@@ -318,7 +319,7 @@
  * accessed from an exception handler. Otherwise the compiler will/may
  * optimize away the value set in the try-block and the handler will not see
  * the new value. Declaring the variable volatile is only necessary
- * if the variable is to be used inside a CATCH or ELSE block. Example:
+ * if the variable is to be used inside a CATCH, ELSE, or FINALLY block. Example:
  * ```c
  * volatile int i = 0;
  * TRY
