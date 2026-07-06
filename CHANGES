@@ -23,6 +23,11 @@ Version 3.6.0
   or a use-after-free on the next row fetch. Non-LOB columns now return
   their already-fetched value directly.
 
+* Fixed: PostgreSQL: PreparedStatement_setDouble() formatted the value with
+  "%lf" (fixed 6-decimal notation), losing precision and corrupting large or
+  small magnitudes -- e.g. 1e-10 became 0 and 1e300 was truncated to ~1e62.
+  It now uses "%.17g", which round-trips an IEEE-754 double exactly.
+
 * Fixed: C++, PreparedStatement::bind()/bindValues() and the Connection
   execute()/executeQuery() variadic overloads silently bound every long
   value as a SQL timestamp. Because time_t is only a typedef for a built-in

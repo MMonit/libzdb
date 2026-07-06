@@ -142,7 +142,10 @@ static void _setLLong(T P, int parameterIndex, long long x) {
 static void _setDouble(T P, int parameterIndex, double x) {
         assert(P);
         int i = checkAndSetParameterIndex(parameterIndex, P->parameterCount);
-        snprintf(P->params[i].s, 64, "%lf", x);
+        // %.17g preserves full IEEE-754 double precision on round-trip and uses
+        // the shortest of fixed/scientific notation; %lf (fixed 6-decimal) loses
+        // precision and truncates large magnitudes (e.g. 1e300 needs ~308 digits)
+        snprintf(P->params[i].s, 64, "%.17g", x);
         P->paramValues[i] =  P->params[i].s;
         P->paramLengths[i] = 0;
         P->paramFormats[i] = 0;
