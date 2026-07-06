@@ -79,13 +79,23 @@ static void _free(T *P) {
 }
 
 
+// Raise an exception if the last sqlite3_bind_* call failed. Every bind error
+// must be reported here: otherwise a swallowed failure (e.g. SQLITE_TOOBIG)
+// leaves the parameter unbound and the statement executes with silent data loss
+static void _throwOnBindError(T P) {
+        if (P->lastError == SQLITE_OK)
+                return;
+        if (P->lastError == SQLITE_RANGE)
+                THROW(SQLException, "Parameter index is out of range");
+        THROW_SQL(sqlite3_extended_errcode(P->db), "Connection [%p] %s", P->delegator, sqlite3_errmsg(P->db));
+}
+
+
 static void _setString(T P, int parameterIndex, const char *x, int size) {
         assert(P);
         sqlite3_reset(P->stmt);
         P->lastError = sqlite3_bind_text(P->stmt, parameterIndex, x, size, SQLITE_STATIC);
-        if (P->lastError == SQLITE_RANGE) {
-                THROW(SQLException, "Parameter index is out of range");
-        }
+        _throwOnBindError(P);
 }
 
 
@@ -93,9 +103,7 @@ static void _setInt(T P, int parameterIndex, int x) {
         assert(P);
         sqlite3_reset(P->stmt);
         P->lastError = sqlite3_bind_int(P->stmt, parameterIndex, x);
-        if (P->lastError == SQLITE_RANGE) {
-                THROW(SQLException, "Parameter index is out of range");
-        }
+        _throwOnBindError(P);
 }
 
 
@@ -103,9 +111,7 @@ static void _setLLong(T P, int parameterIndex, long long x) {
         assert(P);
         sqlite3_reset(P->stmt);
         P->lastError = sqlite3_bind_int64(P->stmt, parameterIndex, x);
-        if (P->lastError == SQLITE_RANGE) {
-                THROW(SQLException, "Parameter index is out of range");
-        }
+        _throwOnBindError(P);
 }
 
 
@@ -113,9 +119,7 @@ static void _setDouble(T P, int parameterIndex, double x) {
         assert(P);
         sqlite3_reset(P->stmt);
         P->lastError = sqlite3_bind_double(P->stmt, parameterIndex, x);
-        if (P->lastError == SQLITE_RANGE) {
-                THROW(SQLException, "Parameter index is out of range");
-        }
+        _throwOnBindError(P);
 }
 
 
@@ -123,9 +127,7 @@ static void _setTimestamp(T P, int parameterIndex, time_t x) {
         assert(P);
         sqlite3_reset(P->stmt);
         P->lastError = sqlite3_bind_int64(P->stmt, parameterIndex, x);
-        if (P->lastError == SQLITE_RANGE) {
-                THROW(SQLException, "Parameter index is out of range");
-        }
+        _throwOnBindError(P);
 }
 
 
@@ -133,9 +135,7 @@ static void _setBlob(T P, int parameterIndex, const void *x, int size) {
         assert(P);
         sqlite3_reset(P->stmt);
         P->lastError = sqlite3_bind_blob(P->stmt, parameterIndex, x, size, SQLITE_STATIC);
-        if (P->lastError == SQLITE_RANGE) {
-                THROW(SQLException, "Parameter index is out of range");
-        }
+        _throwOnBindError(P);
 }
 
 

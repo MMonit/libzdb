@@ -286,6 +286,33 @@ static void testPool(const char *testURL) {
                         printf("success\n");
                 }
 
+                // Regression (SQLite): a failing bind must raise an exception, not be
+                // silently swallowed and then executed with the parameter left unbound
+                // (silent data loss). A bind size exceeding SQLITE_LIMIT_LENGTH (default
+                // 1e9) yields SQLITE_TOOBIG; SQLite validates the length before touching
+                // the buffer, so a small buffer with an oversized size triggers it cheaply.
+                if (Str_startsWith(testURL, "sqlite")) {
+                        printf("\tResult: check bind error is not swallowed..");
+                        Connection_execute(con, "drop table if exists toobig_t;");
+                        Connection_execute(con, "create table toobig_t(x text);");
+                        PreparedStatement_T pt = Connection_prepareStatement(con, "insert into toobig_t values (?);");
+                        char smallbuf[16] = "xxxx";
+                        volatile int threw = 0;
+                        TRY {
+                                PreparedStatement_setSString(pt, 1, smallbuf, 1500000000); // > SQLITE_LIMIT_LENGTH
+                                PreparedStatement_execute(pt);
+                        } CATCH(SQLException) {
+                                threw = 1;
+                        } END_TRY;
+                        assert(threw); // before the fix no exception was raised
+                        // ... and no row was silently inserted with a NULL x
+                        rset = Connection_executeQuery(con, "select count(*) from toobig_t;");
+                        assert(ResultSet_next(rset));
+                        assert(ResultSet_getInt(rset, 1) == 0);
+                        Connection_execute(con, "drop table if exists toobig_t;");
+                        printf("success\n");
+                }
+
                 printf("\tResult: check max rows..");
                 Connection_setMaxRows(con, 3);
                 rset = Connection_executeQuery(con, "select id from zild_t;");

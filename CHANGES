@@ -22,6 +22,12 @@ Version 3.6.0
   small magnitudes -- e.g. 1e-10 became 0 and 1e300 was truncated to ~1e62.
   It now uses "%.17g", which round-trips an IEEE-754 double exactly.
 
+* Fixed: SQLite: PreparedStatement setters only raised an exception on
+  SQLITE_RANGE; any other bind failure (e.g. SQLITE_TOOBIG for a value larger
+  than SQLITE_LIMIT_LENGTH) was silently swallowed, and PreparedStatement_execute()
+  then ran the statement with the parameter left unbound -- silently storing NULL.
+  A failed bind now raises an SQLException.
+
 * Fixed: Oracle: ResultSet_getBlob() on a non-LOB column corrupted the
   fetch buffer (it resized/freed the OCIDefineByPos target and called
   OCILobRead2() with a NULL locator), which could cause heap corruption
