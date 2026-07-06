@@ -348,12 +348,7 @@ static const void *_getBlob(T R, int columnIndex, int *size) {
                 return NULL;
         /*
          * Non-LOB column (lob_loc is NULL): the value was already fetched into
-         * the OCIDefineByPos target buffer. Return it directly, as _getString()
-         * does. We must NOT run the LOB read path below on such a column: it
-         * would RESIZE the define buffer (leaving OCIDefineByPos pointing at a
-         * freed address), call OCILobRead2() with a NULL locator, and FREE the
-         * define buffer on the resulting error -- corrupting the fetch buffer
-         * and causing a use-after-free on the next row fetch.
+         * the OCIDefineByPos target buffer. Return it directly, same as _getString()
          */
         if (!R->columns[i].lob_loc) {
                 *size = R->columns[i].buffer ? (int)strlen(R->columns[i].buffer) : 0;
