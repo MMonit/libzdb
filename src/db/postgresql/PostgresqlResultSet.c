@@ -148,7 +148,7 @@ static int _getColumnCount(T R) {
 static const char *_getColumnName(T R, int columnIndex) {
         assert(R);
         columnIndex--;
-        if (R->columnCount <= 0 || columnIndex < 0 || columnIndex > R->columnCount)
+        if (R->columnCount <= 0 || columnIndex < 0 || columnIndex >= R->columnCount)
                 return NULL;
         return PQfname(R->res, columnIndex);
 }

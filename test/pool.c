@@ -216,6 +216,11 @@ static void testPool(const char *testURL) {
                 printf("\tResult:\n");
                 printf("\tNumber of columns in resultset: %d\n\t", ResultSet_getColumnCount(rset));
                 assert(4==ResultSet_getColumnCount(rset));
+
+                // Regression test: out-of-range column index must return NULL, not read past the column array
+                assert(ResultSet_getColumnName(rset, 0) == NULL);
+                assert(ResultSet_getColumnName(rset, ResultSet_getColumnCount(rset) + 1) == NULL);
+
                 i = 1;
                 printf("%-5s", ResultSet_getColumnName(rset, i++));
                 printf("%-16s", ResultSet_getColumnName(rset, i++));

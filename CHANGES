@@ -12,6 +12,10 @@ Version 3.6.0
 * Fixed: SQLite: ResultSet_getDateTime() crashed on a NULL column value.
   It now returns a zeroed date, consistent with ResultSet_getTimestamp().
 
+* Fixed: ResultSet_getColumnName() bounds checks were off-by-one across
+  all database adapters (MySQL, SQLite, PostgreSQL, Oracle), allowing an
+  out-of-range column index to read one element past the column array.
+  On MySQL and Oracle this could crash; it now consistently returns NULL.
 
 Version 3.5.0
 -------------

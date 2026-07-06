@@ -255,7 +255,7 @@ static int _getColumnCount(T R) {
 
 static const char *_getColumnName(T R, int column) {
         assert(R);
-        if (R->columnCount < column)
+        if (column < 1 || column > R->columnCount)
                 return NULL;
         return R->columns[column - 1].name;
 }
