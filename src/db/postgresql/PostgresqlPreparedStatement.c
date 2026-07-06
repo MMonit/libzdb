@@ -34,8 +34,10 @@
 
 /**
  * Implementation of the PreparedStatement/Delegate interface for postgresql.
- * All parameter values are sent as text except for blobs. Postgres ignore
- * paramLengths for text parameters and it is therefor set to 0, except for blob.
+ * All parameter values are sent as text except for blobs, which are sent in
+ * binary format. libpq ignores paramLengths for text parameters (so it is set to
+ * 0 for those); string values are copied into an owned, NUL-terminated buffer so
+ * the caller-supplied length is honored and non-NUL-terminated buffers are safe.
  *
  * @file
  */
@@ -55,9 +57,10 @@ struct T {
         PGresult *res;
         param_t params;
         int parameterCount;
-        char **paramValues; 
-        int *paramLengths; 
+        char **paramValues;
+        int *paramLengths;
         int *paramFormats;
+        char **sbuf;        // owned, length-exact copies of string parameters
         Connection_T delegator;
 };
 extern const struct Rop_T postgresqlrops;
@@ -81,6 +84,7 @@ T PostgresqlPreparedStatement_new(Connection_T delegator, PGconn *db, char *stmt
                 P->paramLengths = CALLOC(P->parameterCount, sizeof(int));
                 P->paramFormats = CALLOC(P->parameterCount, sizeof(int));
                 P->params = CALLOC(P->parameterCount, sizeof(struct param_t));
+                P->sbuf = CALLOC(P->parameterCount, sizeof(char *));
         }
         return P;
 }
@@ -101,6 +105,9 @@ static void _free(T *P) {
         PQclear((*P)->res);
 	FREE((*P)->stmt);
         if ((*P)->parameterCount) {
+                for (int i = 0; i < (*P)->parameterCount; i++)
+                        FREE((*P)->sbuf[i]);
+                FREE((*P)->sbuf);
 	        FREE((*P)->paramValues);
 	        FREE((*P)->paramLengths);
 	        FREE((*P)->paramFormats);
@@ -113,8 +120,24 @@ static void _free(T *P) {
 static void _setString(T P, int parameterIndex, const char *x, int size) {
         assert(P);
         int i = checkAndSetParameterIndex(parameterIndex, P->parameterCount);
-        P->paramValues[i] = (char *)x;
-        P->paramLengths[i] = size;
+        FREE(P->sbuf[i]); // release any copy from a previous bind on this index
+        if (! x) {
+                P->paramValues[i] = NULL; // SQL NULL
+                P->paramLengths[i] = 0;
+                P->paramFormats[i] = 0;
+                return;
+        }
+        // libpq ignores paramLengths for text-format parameters and reads the value
+        // up to the NUL terminator. To honor the caller-supplied length (setSString)
+        // and avoid over-reading a non-NUL-terminated buffer, copy exactly 'size'
+        // bytes into an owned, NUL-terminated buffer. Text format (not binary) is
+        // kept so the server still parses text representations of typed columns
+        // (dates, numbers, ...) bound via setString().
+        P->sbuf[i] = ALLOC(size + 1);
+        memcpy(P->sbuf[i], x, size);
+        P->sbuf[i][size] = 0;
+        P->paramValues[i] = P->sbuf[i];
+        P->paramLengths[i] = 0;
         P->paramFormats[i] = 0;
 }
 

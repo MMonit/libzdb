@@ -5,6 +5,11 @@
 Version 3.6.0
 -------------
 
+* Fixed: PostgreSQL: PreparedStatement_setSString() ignored the caller-supplied
+  length. libpq ignores paramLengths for text-format parameters and reads the
+  value up to the NUL terminator, so binding a length-delimited substring sent
+  the whole string, and a non-NUL-terminated buffer was over-read.
+
 * Fixed: PostgreSQL: ResultSet_getBlob() decoded the bytea value by unescaping
   the shared PGresult buffer in place. A second getBlob() on the same cell then
   re-decoded already-decoded bytes (returning corrupt data and a wrong size), and

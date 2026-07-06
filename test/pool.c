@@ -435,6 +435,24 @@ static void testPool(const char *testURL) {
                         printf("success\n");
                 }
 
+                // Regression (PostgreSQL): setSString() must honor the caller-supplied
+                // length. libpq ignores paramLengths for text-format params and reads to
+                // the NUL, so before the fix the whole string was sent; the value is now
+                // bound in binary format with the given length.
+                if (Str_startsWith(testURL, "postgres")) {
+                        printf("\tResult: check setSString honors length..");
+                        Connection_execute(con, "drop table if exists sstr_t;");
+                        Connection_execute(con, "create table sstr_t(x varchar(64));");
+                        PreparedStatement_T ps = Connection_prepareStatement(con, "insert into sstr_t values (?);");
+                        PreparedStatement_setSString(ps, 1, "hello world", 5); // only the first 5 chars
+                        PreparedStatement_execute(ps);
+                        ResultSet_T sr = Connection_executeQuery(con, "select x from sstr_t;");
+                        assert(ResultSet_next(sr));
+                        assert(IS(ResultSet_getString(sr, 1), "hello")); // before the fix: "hello world"
+                        Connection_execute(con, "drop table if exists sstr_t;");
+                        printf("success\n");
+                }
+
                 printf("\tResult: check max rows..");
                 Connection_setMaxRows(con, 3);
                 rset = Connection_executeQuery(con, "select id from zild_t;");
