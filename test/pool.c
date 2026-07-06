@@ -286,6 +286,33 @@ static void testPool(const char *testURL) {
                         printf("success\n");
                 }
 
+                // Regression (SQLite): a failing bind must raise an exception, not be
+                // silently swallowed and then executed with the parameter left unbound
+                // (silent data loss). A bind size exceeding SQLITE_LIMIT_LENGTH (default
+                // 1e9) yields SQLITE_TOOBIG; SQLite validates the length before touching
+                // the buffer, so a small buffer with an oversized size triggers it cheaply.
+                if (Str_startsWith(testURL, "sqlite")) {
+                        printf("\tResult: check bind error is not swallowed..");
+                        Connection_execute(con, "drop table if exists toobig_t;");
+                        Connection_execute(con, "create table toobig_t(x text);");
+                        PreparedStatement_T pt = Connection_prepareStatement(con, "insert into toobig_t values (?);");
+                        char smallbuf[16] = "xxxx";
+                        volatile int threw = 0;
+                        TRY {
+                                PreparedStatement_setSString(pt, 1, smallbuf, 1500000000); // > SQLITE_LIMIT_LENGTH
+                                PreparedStatement_execute(pt);
+                        } CATCH(SQLException) {
+                                threw = 1;
+                        } END_TRY;
+                        assert(threw); // before the fix no exception was raised
+                        // ... and no row was silently inserted with a NULL x
+                        rset = Connection_executeQuery(con, "select count(*) from toobig_t;");
+                        assert(ResultSet_next(rset));
+                        assert(ResultSet_getInt(rset, 1) == 0);
+                        Connection_execute(con, "drop table if exists toobig_t;");
+                        printf("success\n");
+                }
+
                 printf("\tResult: check max rows..");
                 Connection_setMaxRows(con, 3);
                 rset = Connection_executeQuery(con, "select id from zild_t;");
@@ -789,6 +816,24 @@ static void testPool(const char *testURL) {
                                ResultSet_getString(r, 3),
                                (long long)ResultSet_getTimestamp(r, 4),
                                ResultSet_getString(r, 4)); // SQLite will show both as numeric
+                }
+                // Regression: a calendar date near a year boundary must report the
+                // correct calendar year. 2024-12-30 falls in ISO week 1 of 2025, so
+                // the Oracle date-to-string format must use YYYY (calendar year), not
+                // IYYY (ISO week-numbering year), which would report 2025.
+                Connection_execute(con, "delete from zild_t;");
+                PreparedStatement_T pb = Connection_prepareStatement(con, "insert into zild_t (d) values (?);");
+                if (Str_startsWith(testURL, "oracle"))
+                        PreparedStatement_setString(pb, 1, "2024-12-30 00:00:00");
+                else
+                        PreparedStatement_setString(pb, 1, "2024-12-30");
+                PreparedStatement_execute(pb);
+                ResultSet_T rb = Connection_executeQuery(con, "select d from zild_t");
+                if (ResultSet_next(rb)) {
+                        struct tm bd = ResultSet_getDateTime(rb, 1);
+                        assert(bd.tm_year == 2024); // IYYY (ISO year) would report 2025
+                        assert(bd.tm_mon == 11);    // December (month - 1)
+                        assert(bd.tm_mday == 30);
                 }
                 Connection_execute(con, "drop table zild_t;");
                 Connection_close(con);

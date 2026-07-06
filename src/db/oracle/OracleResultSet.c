@@ -180,7 +180,11 @@ static bool _initDefiningBuffers(T R) {
 
 
 static bool _dateToString(T R, int i) {
-        const char fmt[] = "IYYY-MM-DD HH24.MI.SS";
+        // Use YYYY (calendar year), not IYYY (ISO week-numbering year): IYYY
+        // diverges from the calendar year around year boundaries (e.g. the
+        // calendar date 2024-12-30 falls in ISO week 1 of 2025), which would
+        // otherwise yield the wrong year when mixed with MM-DD.
+        const char fmt[] = "YYYY-MM-DD HH24.MI.SS";
         R->columns[i].length = DATE_STR_BUF_SIZE;
         if (R->columns[i].buffer)
                 FREE(R->columns[i].buffer);
