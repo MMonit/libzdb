@@ -465,6 +465,23 @@ static void testURL(void) {
                 assert(! url);
         }
         printf("=> Test4: OK\n\n");
+
+        printf("=> Test4b: malformed / out-of-range port\n");
+        {
+                // Regression: an overflowing port used to throw from the URL parser,
+                // aborting the process if the caller had no exception handler. A bad
+                // port must instead make URL_new() return NULL, like any other
+                // malformed URL, and must never abort.
+                assert(! URL_new("mysql://host:99999999999999999999/db")); // overflows
+                assert(! URL_new("mysql://host:70000/db"));                 // > 65535
+                assert(! URL_new("mysql://host:0/db"));                     // port 0 is invalid
+                // A valid port still parses correctly
+                url = URL_new("mysql://host:3306/db");
+                assert(url);
+                assert(URL_getPort(url) == 3306);
+                URL_free(&url);
+        }
+        printf("=> Test4b: OK\n\n");
         
         printf("=> Test5: Parse full url string\n");
         {

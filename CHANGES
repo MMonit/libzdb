@@ -60,6 +60,12 @@ Version 3.6.0
   a year boundary was returned with the wrong year, e.g. the date 2024-12-30
   (ISO week 1 of 2025) came back as 2025-12-30.
 
+* Fixed: URL_new()/URL_create() aborted the process on an invalid port value.
+  The parser threw a NumberFormatException when the port was outside 1-65535
+  range (e.g.  "mysql://host:99999999999999999999/db"); with no exception handler
+  installed this unwound to an empty stack and aborted the program. An invalid
+  port now makes URL parsing return NULL, like any other invalid URL.
+
 * Fixed: C++, PreparedStatement::bind()/bindValues() and the Connection
   execute()/executeQuery() variadic overloads silently bound every long
   value as a SQL timestamp. Because time_t is only a typedef for a built-in
