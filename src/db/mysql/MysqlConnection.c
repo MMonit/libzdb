@@ -249,6 +249,24 @@ static void _setQueryTimeout(T C, int ms) {
 }
 
 
+/*
+ * CLIENT_MULTI_STATEMENTS is enabled, so a single mysql_query()/mysql_real_query()
+ * may leave several result sets pending. Every one must be consumed or the next
+ * command on this connection fails with CR_COMMANDS_OUT_OF_SYNC. Guarded by
+ * mysql_more_results() so the common single-statement path -- and the
+ * mysql_affected_rows()/mysql_insert_id() it exposes -- is left untouched.
+ */
+static void _drainResults(T C) {
+        while (mysql_more_results(C->db)) {
+                if (mysql_next_result(C->db) != 0)
+                        break; // -1: no more results, or >0: a later statement failed
+                MYSQL_RES *result = mysql_store_result(C->db);
+                if (result)
+                        mysql_free_result(result);
+        }
+}
+
+
 static bool _beginTransactionType(T C, TRANSACTION_TYPE type) {
         assert(C);
         const char *sql;
@@ -269,6 +287,7 @@ static bool _beginTransactionType(T C, TRANSACTION_TYPE type) {
                         sql = "START TRANSACTION;";
         }
         C->lastError = mysql_query(C->db, sql);
+        _drainResults(C); // "SET TRANSACTION ...; START TRANSACTION;" yields two results
         return (C->lastError == MYSQL_OK);
 }
 
@@ -306,6 +325,7 @@ static bool _execute(T C, const char *sql, va_list ap) {
         StringBuffer_vset(C->sb, sql, ap_copy);
         va_end(ap_copy);
         C->lastError = mysql_real_query(C->db, StringBuffer_toString(C->sb), StringBuffer_length(C->sb));
+        _drainResults(C); // user SQL may contain several ';'-separated statements
         return (C->lastError == MYSQL_OK);
 }
 

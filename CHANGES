@@ -5,6 +5,13 @@
 Version 3.6.0
 -------------
 
+* Fixed: MySQL: Connection_beginTransactionType() with a non-default isolation
+  level sends "SET TRANSACTION ...; START TRANSACTION;" as two statements, but the
+  second result was never drained. Since CLIENT_MULTI_STATEMENTS is enabled, this
+  left the connection out of sync and the next command failed with
+  CR_COMMANDS_OUT_OF_SYNC. All pending results of a multi-statement query (also
+  for Connection_execute() with ';'-separated statements) are now consumed.
+
 * Fixed: Connection_commit() cleared the in-transaction flag before calling the
   underlying database commit. If the commit failed and threw an exception, the
   connection was left marked as idle, so closing it (or returning it to the pool)

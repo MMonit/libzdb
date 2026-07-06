@@ -400,7 +400,28 @@ static void testPool(const char *testURL) {
                         assert(fetched == 12);
                         printf("success\n");
                 }
-                
+
+                // Regression (MySQL): beginTransactionType() with a non-default isolation
+                // level sends "SET TRANSACTION ...; START TRANSACTION;" as two statements.
+                // With CLIENT_MULTI_STATEMENTS enabled, both results must be drained or the
+                // next command on the connection fails with CR_COMMANDS_OUT_OF_SYNC.
+                if (Str_startsWith(testURL, "mysql")) {
+                        printf("\tResult: check multi-statement transaction is drained..");
+                        volatile int ok = 0;
+                        TRY {
+                                Connection_beginTransactionType(con, TRANSACTION_READ_COMMITTED);
+                                ResultSet_T r = Connection_executeQuery(con, "select count(*) from zild_t;");
+                                assert(ResultSet_next(r));
+                                assert(ResultSet_getInt(r, 1) == 12);
+                                Connection_commit(con);
+                                ok = 1;
+                        } CATCH(SQLException) {
+                                ok = 0; // buggy: the next command throws CR_COMMANDS_OUT_OF_SYNC
+                        } END_TRY;
+                        assert(ok);
+                        printf("success\n");
+                }
+
                 /* Need to close and release statements before
                    we can drop the table, sqlite need this */
                 Connection_clear(con);
