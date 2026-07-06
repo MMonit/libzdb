@@ -60,6 +60,13 @@ Version 3.6.0
   a year boundary was returned with the wrong year, e.g. the date 2024-12-30
   (ISO week 1 of 2025) came back as 2025-12-30.
 
+* Fixed: PostgreSQL: connection URL values (user, password, host, dbname, SSL
+  paths, application-name) were interpolated into the libpq conninfo string
+  without escaping. A value containing a single quote or backslash, e.g. a
+  password like ab'cd, produced a malformed connection string, and a crafted
+  value could inject arbitrary conninfo parameters. Such characters are now
+  escaped.
+
 * Fixed: URL_new()/URL_create() aborted the process on an invalid port value.
   The parser threw a NumberFormatException when the port was outside 1-65535
   range (e.g.  "mysql://host:99999999999999999999/db"); with no exception handler

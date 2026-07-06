@@ -92,30 +92,48 @@ extern const struct Pop_T postgresqlpops;
 /* ------------------------------------------------------- Private methods */
 
 
+/*
+ * Append a libpq conninfo "key='value' " pair, escaping the ' and \ characters
+ * that are special inside a single-quoted value. Without this a value containing
+ * a quote (e.g. a password like ab'cd) would break the connection string, and a
+ * crafted value (e.g. x' host='evil) could inject arbitrary conninfo parameters.
+ */
+static void _appendConnInfo(StringBuffer_T sb, const char *key, const char *value) {
+        StringBuffer_append(sb, "%s='", key);
+        for (const char *p = value; *p; p++) {
+                if (*p == '\'' || *p == '\\')
+                        StringBuffer_append(sb, "\\%c", *p);
+                else
+                        StringBuffer_append(sb, "%c", *p);
+        }
+        StringBuffer_append(sb, "' ");
+}
+
+
 static bool _doConnect(T C, char **error) {
 #define ERROR(e) do {*error = Str_dup(e); goto error;} while (0)
         URL_T url = Connection_getURL(C->delegator);
         /* User */
         if (URL_getUser(url))
-                StringBuffer_append(C->sb, "user='%s' ", URL_getUser(url));
+                _appendConnInfo(C->sb, "user", URL_getUser(url));
         else if (URL_getParameter(url, "user"))
-                StringBuffer_append(C->sb, "user='%s' ", URL_getParameter(url, "user"));
+                _appendConnInfo(C->sb, "user", URL_getParameter(url, "user"));
         else
                 ERROR("no username specified in URL");
         /* Password */
         if (URL_getPassword(url))
-                StringBuffer_append(C->sb, "password='%s' ", URL_getPassword(url));
+                _appendConnInfo(C->sb, "password", URL_getPassword(url));
         else if (URL_getParameter(url, "password"))
-                StringBuffer_append(C->sb, "password='%s' ", URL_getParameter(url, "password"));
+                _appendConnInfo(C->sb, "password", URL_getParameter(url, "password"));
         else if (! URL_getParameter(url, "unix-socket"))
                 ERROR("no password specified in URL");
         /* Host */
         if (URL_getParameter(url, "unix-socket")) {
                 if (URL_getParameter(url, "unix-socket")[0] != '/')
                         ERROR("invalid unix-socket directory");
-                StringBuffer_append(C->sb, "host='%s' ", URL_getParameter(url, "unix-socket"));
+                _appendConnInfo(C->sb, "host", URL_getParameter(url, "unix-socket"));
         } else if (URL_getHost(url)) {
-                StringBuffer_append(C->sb, "host='%s' ", URL_getHost(url));
+                _appendConnInfo(C->sb, "host", URL_getHost(url));
                 /* Port */
                 if (URL_getPort(url) > 0)
                         StringBuffer_append(C->sb, "port=%d ", URL_getPort(url));
@@ -125,19 +143,19 @@ static bool _doConnect(T C, char **error) {
                 ERROR("no host specified in URL");
         /* Database name */
         if (URL_getPath(url))
-                StringBuffer_append(C->sb, "dbname='%s' ", URL_getPath(url) + 1);
+                _appendConnInfo(C->sb, "dbname", URL_getPath(url) + 1);
         else
                 ERROR("no database specified in URL");
         /* SSL Options */
         StringBuffer_append(C->sb, "sslmode='%s' ", Str_parseBool(URL_getParameter(url, "use-ssl")) ? "require" : "disable");
         if (URL_getParameter(url, "ssl-ca")) {
-                StringBuffer_append(C->sb, "sslrootcert='%s' ", URL_getParameter(url, "ssl-ca"));
+                _appendConnInfo(C->sb, "sslrootcert", URL_getParameter(url, "ssl-ca"));
         }
         if (URL_getParameter(url, "ssl-cert")) {
-                StringBuffer_append(C->sb, "sslcert='%s' ", URL_getParameter(url, "ssl-cert"));
+                _appendConnInfo(C->sb, "sslcert", URL_getParameter(url, "ssl-cert"));
         }
         if (URL_getParameter(url, "ssl-key")) {
-                StringBuffer_append(C->sb, "sslkey='%s' ", URL_getParameter(url, "ssl-key"));
+                _appendConnInfo(C->sb, "sslkey", URL_getParameter(url, "ssl-key"));
         }
         /* Other Options */
         if (URL_getParameter(url, "connect-timeout")) {
@@ -145,7 +163,7 @@ static bool _doConnect(T C, char **error) {
         } else
                 StringBuffer_append(C->sb, "connect_timeout=%lld ", SQL_DEFAULT_TIMEOUT/MSEC_PER_SEC);
         if (URL_getParameter(url, "application-name"))
-                StringBuffer_append(C->sb, "application_name='%s' ", URL_getParameter(url, "application-name"));
+                _appendConnInfo(C->sb, "application_name", URL_getParameter(url, "application-name"));
         /* Connect */
         C->db = PQconnectdb(StringBuffer_toString(C->sb));
         if (PQstatus(C->db) == CONNECTION_OK)

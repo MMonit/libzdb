@@ -178,6 +178,41 @@ static void testPool(const char *testURL) {
                         Connection_execute(con, "drop table if exists fk_parent;");
                         printf("success\n");
                 }
+                // Regression (PostgreSQL): a password containing a single quote must be
+                // escaped in the libpq conninfo string, otherwise the connection string is
+                // malformed (or a crafted value could inject conninfo parameters). Create a
+                // role whose password contains a quote and connect as it. TRY-guarded, so it
+                // is skipped where the test role cannot create roles.
+                if (Str_startsWith(testURL, "postgres")) {
+                        volatile int roleCreated = 0;
+                        TRY {
+                                Connection_execute(con, "drop role if exists zdb_quote;");
+                                Connection_execute(con, "create role zdb_quote login password 'pa''ss';"); // password is pa'ss
+                                roleCreated = 1;
+                        } ELSE {
+                                printf("\t(skipping quote-password test: cannot create role)\n");
+                        } END_TRY;
+                        if (roleCreated) {
+                                printf("\tResult: check quote in password is escaped..");
+                                char *qs = Str_cat("postgresql://%s:%d%s?user=zdb_quote&password=pa'ss",
+                                                   URL_getHost(url), URL_getPort(url), URL_getPath(url));
+                                URL_T qurl = URL_new(qs);
+                                ConnectionPool_T qpool = ConnectionPool_new(qurl);
+                                ConnectionPool_setReaper(qpool, 0);
+                                ConnectionPool_start(qpool);
+                                Connection_T qcon = ConnectionPool_getConnection(qpool);
+                                assert(qcon); // buggy: connect fails because the quote breaks conninfo
+                                ResultSet_T qr = Connection_executeQuery(qcon, "select 42;");
+                                assert(ResultSet_next(qr));
+                                assert(ResultSet_getInt(qr, 1) == 42);
+                                Connection_close(qcon);
+                                ConnectionPool_free(&qpool);
+                                URL_free(&qurl);
+                                FREE(qs);
+                                Connection_execute(con, "drop role zdb_quote;");
+                                printf("success\n");
+                        }
+                }
                 Connection_close(con);
         }
         printf("=> Test4: OK\n\n");
