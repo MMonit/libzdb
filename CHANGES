@@ -22,6 +22,12 @@ Version 3.6.0
   small magnitudes -- e.g. 1e-10 became 0 and 1e300 was truncated to ~1e62.
   It now uses "%.17g", which round-trips an IEEE-754 double exactly.
 
+* Fixed: MySQL: ResultSet_setFetchSize() passed the prefetch count to
+  mysql_stmt_attr_set(STMT_ATTR_PREFETCH_ROWS) as an int*, but libmysqlclient
+  reads an unsigned long -- on 64-bit platforms this read 8 bytes from a 4-byte
+  variable, so the adjacent stack bytes leaked into the prefetch count (a garbage
+  value). The count is now passed as an unsigned long.
+
 * Fixed: SQLite: PreparedStatement setters only raised an exception on
   SQLITE_RANGE; any other bind failure (e.g. SQLITE_TOOBIG for a value larger
   than SQLITE_LIMIT_LENGTH) was silently swallowed, and PreparedStatement_execute()

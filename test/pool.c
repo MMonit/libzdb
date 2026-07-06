@@ -361,8 +361,13 @@ static void testPool(const char *testURL) {
                         // Assert that result set inherits Connection fetch-size
                         assert(ResultSet_getFetchSize(fs) == 50);
                         ResultSet_setFetchSize(fs, 12);
-                        while (ResultSet_next(fs));
                         assert(ResultSet_getFetchSize(fs) == 12);
+                        // Iterate with a small fetch-size (prefetch) active and confirm
+                        // every row is returned. Exercises _setFetchSize, whose prefetch
+                        // count must be handed to mysql as an unsigned long, not an int.
+                        int fetched = 0;
+                        while (ResultSet_next(fs)) fetched++;
+                        assert(fetched == 12);
                         printf("success\n");
                 }
                 
