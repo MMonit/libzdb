@@ -256,10 +256,10 @@ namespace zdb {
 
         // A SQL timestamp is bound from a std::chrono::system_clock::time_point.
         // time_t is intentionally NOT used for this: it is only a typedef for a
-        // built-in integer type (long on LP64, long long on Windows), so binding
-        // it as a timestamp would silently misinterpret every plain integer of
-        // that type. Bind timestamps as a time_point instead; time_t binds as an
-        // ordinary integer.
+        // built-in integer type (long on 64-bit systems, long long on some 32-bit
+        // systems), so binding it as a timestamp would silently misinterpret every
+        // plain integer of that type. Bind timestamps as a time_point instead;
+        // time_t binds as an ordinary integer.
         template<typename T>
         concept TimePoint = std::same_as<T, std::chrono::system_clock::time_point>;
         // @endcond
