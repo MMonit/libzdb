@@ -148,6 +148,36 @@ static void testPool(const char *testURL) {
                         assert(Connection_lastRowId(con) == 12);
                 Connection_commit(con);
                 printf("\tResult: table zild_t successfully created\n");
+                // Regression (SQLite): if commit fails, the connection must stay marked
+                // in-transaction so it is rolled back on close / return-to-pool. A deferred
+                // foreign-key violation makes COMMIT fail while leaving the transaction open.
+                // Before the fix Connection_commit() cleared the flag *before* calling the
+                // delegate, so a failed commit left the connection looking idle and its
+                // uncommitted transaction was never rolled back.
+                if (Str_startsWith(testURL, "sqlite")) {
+                        printf("\tResult: check failed commit keeps transaction open..");
+                        Connection_execute(con, "PRAGMA foreign_keys = ON;");
+                        Connection_execute(con, "drop table if exists fk_child;");
+                        Connection_execute(con, "drop table if exists fk_parent;");
+                        Connection_execute(con, "create table fk_parent(id integer primary key);");
+                        Connection_execute(con, "create table fk_child(pid integer references fk_parent(id) deferrable initially deferred);");
+                        Connection_beginTransaction(con);
+                        Connection_execute(con, "insert into fk_child values(999);"); // no matching parent row
+                        volatile int threw = 0, stillInTxn = -1;
+                        TRY {
+                                Connection_commit(con); // deferred FK check fails at COMMIT
+                        } CATCH(SQLException) {
+                                threw = 1;
+                                stillInTxn = Connection_inTransaction(con);
+                        } END_TRY;
+                        assert(threw);              // commit did fail
+                        assert(stillInTxn == true); // still in-transaction after the failed commit
+                        Connection_rollback(con);   // and a rollback cleanly ends it
+                        assert(! Connection_inTransaction(con));
+                        Connection_execute(con, "drop table if exists fk_child;");
+                        Connection_execute(con, "drop table if exists fk_parent;");
+                        printf("success\n");
+                }
                 Connection_close(con);
         }
         printf("=> Test4: OK\n\n");

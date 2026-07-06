@@ -284,12 +284,13 @@ bool Connection_inTransaction(T C) {
 
 void Connection_commit(T C) {
         assert(C);
-        if (C->inTransaction)
-                C->inTransaction = 0;
-        // Even if we are not in a transaction, call the delegate anyway and propagate any errors
+        // Even if we are not in a transaction, call the delegate anyway and propagate any errors.
+        // Clear the transaction flag only on success: if commit fails and throws, the connection
+        // must stay marked in-transaction so it is rolled back when closed / returned to the pool.
         if (! C->op->commit(C->D)) {
                 THROW_SQL(_getLastErrorCode(C), "%s", Connection_getLastError(C));
         }
+        C->inTransaction = 0;
 }
 
 

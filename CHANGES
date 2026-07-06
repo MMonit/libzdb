@@ -5,6 +5,13 @@
 Version 3.6.0
 -------------
 
+* Fixed: Connection_commit() cleared the in-transaction flag before calling the
+  underlying database commit. If the commit failed and threw an exception, the
+  connection was left marked as idle, so closing it (or returning it to the pool)
+  skipped the rollback and the connection could be handed out again with an
+  uncommitted or aborted transaction still open. The flag is now cleared only
+  after a successful commit.
+
 * Fixed: Time_toDateTime()/Time_toTimestamp(): one-byte out-of-bounds
   read when parsing a date string ending in a bare hour-only timezone
   offset such as "...+05" or "...-08".
