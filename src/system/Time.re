@@ -272,9 +272,13 @@ struct tm *Time_toDateTime(const char *s, struct tm *t) {
                  { // Timezone: +-HH:MM, +-HH or +-HHMM is offset from UTC in seconds
                         if (have_time) { // Only set timezone if we have parsed time
                                 tm.TM_GMTOFF = _a2i(yytoken + 1, 2) * 3600;
-                                if (isdigit(yytoken[3]))
+                                // yytoken[3] guards the yytoken[4] read: for a bare
+                                // hour-only offset at end of string (e.g. "...+05"),
+                                // yytoken[3] is the NUL terminator, so short-circuit
+                                // before reading yytoken[4] which would be out of bounds
+                                if (isdigit((unsigned char)yytoken[3]))
                                         tm.TM_GMTOFF += _a2i(yytoken + 3, 2) * 60;
-                                else if (isdigit(yytoken[4]))
+                                else if (yytoken[3] && isdigit((unsigned char)yytoken[4]))
                                         tm.TM_GMTOFF += _a2i(yytoken + 4, 2) * 60;
                                 if (yytoken[0] == '-')
                                         tm.TM_GMTOFF *= -1;

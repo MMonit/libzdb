@@ -5,6 +5,10 @@
 Version 3.6.0
 -------------
 
+* Fixed: Time_toDateTime()/Time_toTimestamp(): one-byte out-of-bounds
+  read when parsing a date string ending in a bare hour-only timezone
+  offset such as "...+05" or "...-08".
+
 
 Version 3.5.0
 -------------

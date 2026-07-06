@@ -309,6 +309,15 @@ static void testTime(void) {
                 assert(t.tm_min  == 38);
                 assert(t.tm_sec  == 8);
                 assert(t.TM_GMTOFF == -28800);
+                // Bare hour-only offset at end of string (regression: must not read past NUL terminator)
+                assert(Time_toDateTime("09:38:08+05", &t));
+                assert(t.tm_hour == 9);
+                assert(t.tm_min  == 38);
+                assert(t.tm_sec  == 8);
+                assert(t.TM_GMTOFF == 18000); // +05:00 == 5*3600, no minutes
+                // Negative bare hour-only offset at end of string
+                assert(Time_toDateTime("09:38:08-08", &t));
+                assert(t.TM_GMTOFF == -28800); // -08:00 == -8*3600, no minutes
                 // Date without time, tz should not be set
                 assert(Time_toDateTime("2013-12-15-0800 ", &t));
                 assert(t.TM_GMTOFF == 0);
@@ -354,6 +363,11 @@ static void testTime(void) {
                 assert(t == 1387066378);
                 // Compressed
                 t = Time_toTimestamp("20131214191258-0500");
+                assert(t == 1387066378);
+                // Bare hour-only offset at end of string (regression: no OOB read past NUL terminator)
+                t = Time_toTimestamp("2013-12-14 19:12:58-05");
+                assert(t == 1387066378);
+                t = Time_toTimestamp("2013-12-15 09:12:58+09");
                 assert(t == 1387066378);
                 // Old metric style
                 t = Time_toTimestamp("15/12/2013 00:12");
