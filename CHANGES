@@ -10,7 +10,7 @@ Version 3.6.0
   offset such as "...+05" or "...-08".
 
 * Fixed: SQLite: ResultSet_getDateTime() threw an exception on a NULL
-  column value. Instead tt now returns a zeroed date, consistent with
+  column value. It now returns a zeroed date, consistent with
   ResultSet_getTimestamp().
 
 * Fixed: ResultSet_getColumnName() bounds checks were off-by-one across
