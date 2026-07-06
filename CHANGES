@@ -23,6 +23,15 @@ Version 3.6.0
   or a use-after-free on the next row fetch. Non-LOB columns now return
   their already-fetched value directly.
 
+* Fixed: C++, PreparedStatement::bind()/bindValues() and the Connection
+  execute()/executeQuery() variadic overloads silently bound every long
+  value as a SQL timestamp. Because time_t is only a typedef for a built-in
+  integer type (long on LP64, long long on Windows), a plain integer such as
+  a row id was stored as a DATETIME. Integral values (including time_t) now
+  bind as integers; bind a std::chrono::system_clock::time_point to store a
+  timestamp. NOTE: C++ code that relied on binding a time_t as a timestamp
+  must now pass a std::chrono::system_clock::time_point instead.
+
 Version 3.5.0
 -------------
 

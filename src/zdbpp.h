@@ -29,6 +29,7 @@
 #include <utility>
 #include <stdexcept>
 #include <ctime>
+#include <chrono>
 #include <type_traits>
 #include <optional>
 #include <span>
@@ -248,10 +249,19 @@ namespace zdb {
         concept Stringable = std::convertible_to<T, std::string_view>;
         
         template<typename T>
-        concept Numeric = (std::integral<T> || std::floating_point<T>) && !std::is_same_v<T, time_t>;
-        
+        concept Numeric = std::integral<T> || std::floating_point<T>;
+
         template<typename T>
         concept Blobable = std::ranges::contiguous_range<T> && std::same_as<std::ranges::range_value_t<T>, std::byte>;
+
+        // A SQL timestamp is bound from a std::chrono::system_clock::time_point.
+        // time_t is intentionally NOT used for this: it is only a typedef for a
+        // built-in integer type (long on LP64, long long on Windows), so binding
+        // it as a timestamp would silently misinterpret every plain integer of
+        // that type. Bind timestamps as a time_point instead; time_t binds as an
+        // ordinary integer.
+        template<typename T>
+        concept TimePoint = std::same_as<T, std::chrono::system_clock::time_point>;
         // @endcond
     } // anonymous namespace
     
@@ -1083,7 +1093,9 @@ namespace zdb {
      *
      * ## Date and Time
      *
-     * bindValues() or bind() can be used to set a Unix timestamp value as a `time_t` type.
+     * bindValues() or bind() can be used to set a timestamp value by binding a
+     * `std::chrono::system_clock::time_point`. (A `time_t` value binds as an ordinary
+     * integer, since `time_t` is merely a typedef for a built-in integer type.)
      * To set Date, Time or DateTime values, simply use one of the bind methods to set a
      * time string in a format understood by your database. For instance to set a SQL Date value,
      * ```cpp
@@ -1143,9 +1155,9 @@ namespace zdb {
          *
          * This method can bind different types of values:
          * - String-like types (convertible to std::string_view)
-         * - Numeric types (integral or floating-point, excluding time_t)
+         * - Numeric types (integral or floating-point; time_t binds as an integer)
          * - Blob-like types (contiguous ranges of bytes)
-         * - time_t for timestamp values
+         * - std::chrono::system_clock::time_point for timestamp values
          * - nullptr_t for SQL NULL values
          *
          * @tparam T The type of the value to bind
@@ -1182,8 +1194,8 @@ namespace zdb {
                     store_[parameterIndex] = std::span<const std::byte>(std::data(x), std::size(x));
                     except_wrapper(PreparedStatement_setBlob(t_, parameterIndex, std::data(x), static_cast<int>(std::size(x))));
                 }
-            } else if constexpr (std::is_same_v<std::remove_cvref_t<T>, time_t>) {
-                except_wrapper(PreparedStatement_setTimestamp(t_, parameterIndex, x));
+            } else if constexpr (TimePoint<std::remove_cvref_t<T>>) {
+                except_wrapper(PreparedStatement_setTimestamp(t_, parameterIndex, std::chrono::system_clock::to_time_t(x)));
             } else {
                 static_assert(always_false<T>, "Unsupported type for bind");
             }
@@ -1568,7 +1580,8 @@ namespace zdb {
          *
          * @param sql The SQL statement to execute.
          * @param args (Optional) Arguments to bind to the statement. These can be of various types,
-         *             including string-like types, numeric types, blob-like types, time_t, and nullptr.
+         *             including string-like types, numeric types, blob-like types,
+         *             std::chrono::system_clock::time_point, and nullptr.
          * @throws sql_exception If a database access error occurs or if the types of the provided
          *                       arguments don't match the expected types in the SQL statement.
          * @note When used without arguments, this method is more efficient as it doesn't create
@@ -1605,7 +1618,8 @@ namespace zdb {
          *
          * @param sql The SQL query to execute.
          * @param args (Optional) Arguments to bind to the query. These can be of various types,
-         *             including string-like types, numeric types, blob-like types, time_t, and nullptr.
+         *             including string-like types, numeric types, blob-like types,
+         *             std::chrono::system_clock::time_point, and nullptr.
          * @return A ResultSet containing the query results.
          * @throws sql_exception If a database access error occurs or if the types of the provided
          *                       arguments don't match the expected types in the SQL query.
