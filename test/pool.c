@@ -271,6 +271,21 @@ static void testPool(const char *testURL) {
                 }
                 printf("success\n");
 
+                // Regression (Oracle): ResultSet_getBlob() on a non-LOB column must
+                // return the fetched value without corrupting the OCIDefineByPos
+                // buffer (previously it RESIZE/FREE'd the define buffer and called
+                // OCILobRead2() with a NULL locator -> heap corruption/use-after-free).
+                if (Str_startsWith(testURL, "oracle")) {
+                        printf("\tResult: check getBlob on non-LOB column..");
+                        int bsize = 0;
+                        rset = Connection_executeQuery(con, "select name from zild_t where name = 'Leela';");
+                        assert(ResultSet_next(rset));
+                        const char *nb = (const char*)ResultSet_getBlob(rset, 1, &bsize);
+                        assert(nb && bsize == 5); // "Leela" returned as raw bytes
+                        assert(memcmp(nb, "Leela", 5) == 0);
+                        printf("success\n");
+                }
+
                 printf("\tResult: check max rows..");
                 Connection_setMaxRows(con, 3);
                 rset = Connection_executeQuery(con, "select id from zild_t;");

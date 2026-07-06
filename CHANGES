@@ -17,6 +17,12 @@ Version 3.6.0
   out-of-range column index to read one element past the column array.
   On MySQL and Oracle this could crash; it now consistently returns NULL.
 
+* Fixed: Oracle: ResultSet_getBlob() on a non-LOB column corrupted the
+  fetch buffer (it resized/freed the OCIDefineByPos target and called
+  OCILobRead2() with a NULL locator), which could cause heap corruption
+  or a use-after-free on the next row fetch. Non-LOB columns now return
+  their already-fetched value directly.
+
 Version 3.5.0
 -------------
 
