@@ -790,6 +790,24 @@ static void testPool(const char *testURL) {
                                (long long)ResultSet_getTimestamp(r, 4),
                                ResultSet_getString(r, 4)); // SQLite will show both as numeric
                 }
+                // Regression: a calendar date near a year boundary must report the
+                // correct calendar year. 2024-12-30 falls in ISO week 1 of 2025, so
+                // the Oracle date-to-string format must use YYYY (calendar year), not
+                // IYYY (ISO week-numbering year), which would report 2025.
+                Connection_execute(con, "delete from zild_t;");
+                PreparedStatement_T pb = Connection_prepareStatement(con, "insert into zild_t (d) values (?);");
+                if (Str_startsWith(testURL, "oracle"))
+                        PreparedStatement_setString(pb, 1, "2024-12-30 00:00:00");
+                else
+                        PreparedStatement_setString(pb, 1, "2024-12-30");
+                PreparedStatement_execute(pb);
+                ResultSet_T rb = Connection_executeQuery(con, "select d from zild_t");
+                if (ResultSet_next(rb)) {
+                        struct tm bd = ResultSet_getDateTime(rb, 1);
+                        assert(bd.tm_year == 2024); // IYYY (ISO year) would report 2025
+                        assert(bd.tm_mon == 11);    // December (month - 1)
+                        assert(bd.tm_mday == 30);
+                }
                 Connection_execute(con, "drop table zild_t;");
                 Connection_close(con);
                 ConnectionPool_stop(pool);

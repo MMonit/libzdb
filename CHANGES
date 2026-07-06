@@ -17,16 +17,21 @@ Version 3.6.0
   out-of-range column index to read one element past the column array.
   On MySQL and Oracle this could crash; it now consistently returns NULL.
 
+* Fixed: PostgreSQL: PreparedStatement_setDouble() formatted the value with
+  "%lf" (fixed 6-decimal notation), losing precision and corrupting large or
+  small magnitudes -- e.g. 1e-10 became 0 and 1e300 was truncated to ~1e62.
+  It now uses "%.17g", which round-trips an IEEE-754 double exactly.
+
 * Fixed: Oracle: ResultSet_getBlob() on a non-LOB column corrupted the
   fetch buffer (it resized/freed the OCIDefineByPos target and called
   OCILobRead2() with a NULL locator), which could cause heap corruption
   or a use-after-free on the next row fetch. Non-LOB columns now return
   their already-fetched value directly.
 
-* Fixed: PostgreSQL: PreparedStatement_setDouble() formatted the value with
-  "%lf" (fixed 6-decimal notation), losing precision and corrupting large or
-  small magnitudes -- e.g. 1e-10 became 0 and 1e300 was truncated to ~1e62.
-  It now uses "%.17g", which round-trips an IEEE-754 double exactly.
+* Fixed: Oracle: date/timestamp columns were formatted with "IYYY" (the ISO
+  week-numbering year) instead of "YYYY" (the calendar year), so a value near
+  a year boundary was returned with the wrong year -- e.g. the date 2024-12-30
+  (ISO week 1 of 2025) came back as 2025-12-30.
 
 * Fixed: C++, PreparedStatement::bind()/bindValues() and the Connection
   execute()/executeQuery() variadic overloads silently bound every long
