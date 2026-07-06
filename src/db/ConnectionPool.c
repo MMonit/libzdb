@@ -60,6 +60,7 @@ struct ConnectionPool_S {
         URL_T url;
         bool filled;
         bool doSweep;
+        bool reaperStarted;
         char *error;
         Sem_T alarm;
         Mutex_T mutex;
@@ -399,6 +400,7 @@ void ConnectionPool_start(T P) {
                                 if (P->doSweep) {
                                         DEBUG("Starting Database reaper thread\n");
                                         Thread_create(P->reaper, _doSweep, P);
+                                        P->reaperStarted = true;
                                 }
                         }
                 }
@@ -418,8 +420,13 @@ void ConnectionPool_stop(T P) {
                 if (P->filled) {
                         _drainPool(P);
                         P->filled = false;
-                        stopSweep = (P->doSweep && P->reaper);
                 }
+                // Join the reaper if it was actually started, regardless of the current
+                // doSweep value: setReaper(0) can disable doSweep after start() created
+                // the thread, and it must still be joined before free() destroys the
+                // mutex/cond it waits on.
+                stopSweep = P->reaperStarted;
+                P->reaperStarted = false;
         }
         END_LOCK;
         if (stopSweep) {

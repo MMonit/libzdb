@@ -5,6 +5,14 @@
 Version 3.6.0
 -------------
 
+* Fixed: ConnectionPool: calling ConnectionPool_setReaper(pool, 0) after
+  ConnectionPool_start() did not stop the already-running reaper thread, and
+  ConnectionPool_stop() then decided whether to join it from the now-cleared
+  doSweep flag, so the reaper was left running while ConnectionPool_free()
+  destroyed the mutex and condition variable it was waiting on, crashing the
+  process. The pool now tracks whether the reaper was actually started and
+  always joins it on stop.
+
 * Fixed: MySQL: Connection_beginTransactionType() with a non-default isolation
   level sends "SET TRANSACTION ...; START TRANSACTION;" as two statements, but the
   second result was never drained. Since CLIENT_MULTI_STATEMENTS is enabled, this

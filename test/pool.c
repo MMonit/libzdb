@@ -98,6 +98,28 @@ static void testPool(const char *testURL) {
                 ConnectionPool_free(&pool);
                 assert(pool==NULL);
                 URL_free(&url);
+                // Regression: disabling the reaper AFTER start() must still join the reaper
+                // thread on stop/free. Otherwise free() destroys the mutex/cond the reaper is
+                // still waiting on (setReaper(0) only cleared doSweep, and stop() used that
+                // stale flag to decide whether to join the thread).
+                {
+                        url = URL_new(testURL);
+                        pool = ConnectionPool_new(url);
+                        assert(pool);
+                        ConnectionPool_start(pool);        // reaper thread started (sweep on by default)
+                        ConnectionPool_setReaper(pool, 0); // disable reaper AFTER it was started
+                        volatile int clean = 0;
+                        TRY {
+                                ConnectionPool_stop(pool);
+                                ConnectionPool_free(&pool);
+                                clean = 1;
+                        } ELSE {
+                                clean = 0; // buggy: destroying the mutex/cond the reaper waits on throws
+                        } END_TRY;
+                        assert(clean);
+                        assert(pool == NULL);
+                        URL_free(&url);
+                }
                 // Test that exception is thrown on start error
                 TRY
                 {
