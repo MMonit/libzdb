@@ -81,6 +81,10 @@ Version 3.6.0
   a year boundary was returned with the wrong year, e.g. the date 2024-12-30
   (ISO week 1 of 2025) came back as 2025-12-30.
 
+* Fixed: Oracle: ResultSet_getString() on a date/timestamp column used '.' as the
+  time separator ("YYYY-MM-DD HH.MI.SS"); it now uses ':' to match libzdb's
+  canonical "YYYY-MM-DD HH:MM:SS" format.
+
 * Fixed: PostgreSQL: connection URL values (user, password, host, dbname, SSL
   paths, application-name) were interpolated into the libpq conninfo string
   without escaping. A value containing a single quote or backslash, e.g. a

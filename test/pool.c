@@ -1000,6 +1000,12 @@ static void testPool(const char *testURL) {
                         assert(bd.tm_year == 2024); // IYYY (ISO year) would report 2025
                         assert(bd.tm_mon == 11);    // December (month - 1)
                         assert(bd.tm_mday == 30);
+                        // Oracle: getString on a date column must use ':' as the time
+                        // separator (canonical "YYYY-MM-DD HH:MM:SS"), not '.'.
+                        if (Str_startsWith(testURL, "oracle")) {
+                                const char *ds = ResultSet_getString(rb, 1);
+                                assert(ds && strchr(ds, ':') && !strchr(ds, '.'));
+                        }
                 }
                 Connection_execute(con, "drop table zild_t;");
                 Connection_close(con);
