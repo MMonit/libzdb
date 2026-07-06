@@ -31,6 +31,7 @@
 #include <ctime>
 #include <chrono>
 #include <type_traits>
+#include <limits>
 #include <optional>
 #include <span>
 #include <variant>
@@ -1180,11 +1181,24 @@ namespace zdb {
                 store_[parameterIndex] = sv;
                 except_wrapper(PreparedStatement_setSString(t_, parameterIndex, sv.data(), static_cast<int>(sv.size())));
             } else if constexpr (Numeric<std::remove_cvref_t<T>>) {
-                if constexpr (std::is_floating_point_v<std::remove_cvref_t<T>>) {
+                using U = std::remove_cvref_t<T>;
+                if constexpr (std::is_floating_point_v<U>) {
                     except_wrapper(PreparedStatement_setDouble(t_, parameterIndex, static_cast<double>(x)));
-                } else if constexpr (sizeof(T) <= sizeof(int)) {
-                    except_wrapper(PreparedStatement_setInt(t_, parameterIndex, static_cast<int>(x)));
+                } else if constexpr (std::is_signed_v<U>) {
+                    // Signed integers dispatch by width: int fits setInt, wider uses setLLong.
+                    if constexpr (sizeof(U) <= sizeof(int))
+                        except_wrapper(PreparedStatement_setInt(t_, parameterIndex, static_cast<int>(x)));
+                    else
+                        except_wrapper(PreparedStatement_setLLong(t_, parameterIndex, static_cast<long long>(x)));
                 } else {
+                    // Unsigned integers are promoted to long long so that values above
+                    // INT_MAX do not wrap negative. A 64-bit unsigned value can exceed
+                    // LLONG_MAX, which long long cannot represent, so reject it rather
+                    // than silently wrapping.
+                    if constexpr (sizeof(U) >= sizeof(long long)) {
+                        if (x > static_cast<U>(std::numeric_limits<long long>::max()))
+                            throw sql_exception("Unsigned integer value too large to bind (exceeds LLONG_MAX)");
+                    }
                     except_wrapper(PreparedStatement_setLLong(t_, parameterIndex, static_cast<long long>(x)));
                 }
             } else if constexpr (Blobable<std::remove_cvref_t<T>>) {

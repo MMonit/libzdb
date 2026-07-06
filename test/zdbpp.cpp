@@ -1,4 +1,6 @@
 #include <cassert>
+#include <cstdint>
+#include <climits>
 #include <iostream>
 #include <string>
 #include <string_view>
@@ -100,6 +102,21 @@ static void testPrepared(ConnectionPool& pool) {
         ResultSet echo = con.executeQuery("SELECT ?;", marker);
         assert(echo.next());
         assert(echo.getLLong(1) == marker);
+
+        // Regression: an unsigned value above INT_MAX must not be narrowed to int
+        // (which would wrap negative). It is promoted to long long instead.
+        ResultSet u1 = con.executeQuery("SELECT ?;", 3000000000u); // > INT_MAX
+        assert(u1.next());
+        assert(u1.getLLong(1) == 3000000000LL); // before the fix: -1294967296
+
+        // A 64-bit unsigned value above LLONG_MAX cannot be represented and is rejected
+        bool threw = false;
+        try {
+            con.executeQuery("SELECT ?;", static_cast<std::uint64_t>(LLONG_MAX) + 1u);
+        } catch (const sql_exception&) {
+            threw = true;
+        }
+        assert(threw);
     }
 
     // If the number of values does not match statement placeholders an exception is thrown
