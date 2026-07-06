@@ -332,7 +332,13 @@ static void testPool(const char *testURL) {
                         // Oracle does not support getting blob as string
                         if (! Str_startsWith(testURL, "oracle")) {
                                 assert(image && blob);
-                                assert(strlen(image) + 1 == 8192);
+                                // getString on a BLOB returns the raw bytes (length 8191 up to the
+                                // trailing NUL); on a PostgreSQL bytea it returns the escaped text
+                                // form (e.g. "\x...."), which is longer than the raw 8192 bytes.
+                                if (Str_startsWith(testURL, "postgres"))
+                                        assert(strlen(image) > 8192);
+                                else
+                                        assert(strlen(image) + 1 == 8192);
                         }
                         assert(imagesize == 8192);
                 }
@@ -397,6 +403,35 @@ static void testPool(const char *testURL) {
                         assert(ResultSet_next(rset));
                         assert(ResultSet_getInt(rset, 1) == 0);
                         Connection_execute(con, "drop table if exists toobig_t;");
+                        printf("success\n");
+                }
+
+                // Regression (PostgreSQL): getBlob() must decode the bytea into an owned
+                // buffer, not mutate the shared PGresult in place. Otherwise a second
+                // getBlob() on the same cell re-decodes already-decoded bytes, and a
+                // getString() afterwards returns the mutated binary. The raw bytes
+                // 0x5C 0x78 0x30 0x30 (the text "\x00") make an in-place re-decode mangle
+                // the value, so this catches the regression.
+                if (Str_startsWith(testURL, "postgres")) {
+                        printf("\tResult: check bytea getBlob is not decoded in place..");
+                        Connection_execute(con, "drop table if exists bytea_t;");
+                        Connection_execute(con, "create table bytea_t(x bytea);");
+                        Connection_execute(con, "insert into bytea_t values (decode('5c783030','hex'));");
+                        ResultSet_T br = Connection_executeQuery(con, "select x from bytea_t;");
+                        assert(ResultSet_next(br));
+                        int n1 = 0, n2 = 0;
+                        const unsigned char *b1 = ResultSet_getBlob(br, 1, &n1);
+                        unsigned char saved[8];
+                        assert(n1 == 4);
+                        memcpy(saved, b1, n1);
+                        assert(memcmp(saved, "\x5c\x78\x30\x30", 4) == 0);
+                        // Repeated getBlob on the same cell must return the same bytes
+                        const unsigned char *b2 = ResultSet_getBlob(br, 1, &n2);
+                        assert(n2 == 4 && memcmp(b2, saved, 4) == 0);
+                        // getString on the same column must still return the server's text
+                        const char *bs = ResultSet_getString(br, 1);
+                        assert(bs && bs[0] == '\\' && bs[1] == 'x');
+                        Connection_execute(con, "drop table if exists bytea_t;");
                         printf("success\n");
                 }
 

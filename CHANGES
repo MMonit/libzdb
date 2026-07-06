@@ -5,6 +5,14 @@
 Version 3.6.0
 -------------
 
+* Fixed: PostgreSQL: ResultSet_getBlob() decoded the bytea value by unescaping
+  the shared PGresult buffer in place. A second getBlob() on the same cell then
+  re-decoded already-decoded bytes (returning corrupt data and a wrong size), and
+  ResultSet_getString() on that column returned the mutated binary. getBlob() now
+  decodes into an owned per-column buffer and no longer mutates the result. NOTE:
+  as a consequence, getString() on a bytea column now consistently returns the
+  escaped text representation (e.g. "\x...."); use getBlob() for the raw bytes.
+
 * Fixed: ConnectionPool: calling ConnectionPool_setReaper(pool, 0) after
   ConnectionPool_start() did not stop the already-running reaper thread, and
   ConnectionPool_stop() then decided whether to join it from the now-cleared
