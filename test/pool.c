@@ -252,6 +252,13 @@ static void testPool(const char *testURL) {
                         if (id == 1 || id == 5) {
                                 assert(ResultSet_isnull(rset, 2) == true);
                                 assert(ResultSet_isnullByName(rset, "image") == true);
+
+                                // Regression test for SQLite: getDateTime()/getTimestamp() on a
+                                // NULL column must not crash.
+                                if (Str_startsWith(testURL, "sqlite")) {
+                                        assert(ResultSet_getDateTime(rset, 2).tm_year == 0);
+                                        assert(ResultSet_getTimestamp(rset, 2) == 0);
+                                }
                         } else {
                                 assert(ResultSet_isnull(rset, 2) == false);
                                 assert(ResultSet_isnullByName(rset, "image") == false);

@@ -163,8 +163,11 @@ static struct tm *_getDateTime(T R, int columnIndex, struct tm *tm) {
                 time_t utc = (time_t)sqlite3_column_int64(R->stmt, i);
                 if (gmtime_r(&utc, tm)) tm->tm_year += 1900; // Use year literal
         } else {
-                // Not an integer storage class, try parse as time string
-                Time_toDateTime((const char*)sqlite3_column_text(R->stmt, i), tm);
+                // Not an integer storage class, try parse as time string.
+                // Guard against a NULL column value
+                const char *s = (const char*)sqlite3_column_text(R->stmt, i);
+                if (STR_DEF(s))
+                        Time_toDateTime(s, tm);
         }
         return tm;
 }
