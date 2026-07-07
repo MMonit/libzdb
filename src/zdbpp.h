@@ -38,6 +38,7 @@
 #include <concepts>
 #include <ranges>
 #include <functional>
+#include <mutex>
 #include <vector>
 #include <unordered_map>
 
@@ -226,15 +227,7 @@ namespace zdb {
         constexpr std::optional<std::string_view> _to_optional(const char* str) noexcept {
             return str ? std::optional<std::string_view>{str} : std::nullopt;
         }
-        
-        std::function<void(std::string_view)> g_abortHandler;
-        
-        void bridgeAbortHandler(const char* error) {
-            if (g_abortHandler) {
-                g_abortHandler(error);
-            }
-        }
-        
+
         struct noncopyable {
             noncopyable() = default;
             noncopyable(const noncopyable&) = delete;
@@ -265,6 +258,31 @@ namespace zdb {
         concept TimePoint = std::same_as<T, std::chrono::system_clock::time_point>;
         // @endcond
     } // anonymous namespace
+
+    namespace detail {
+        // @cond hide
+        // The abort handler is process-wide: the underlying C API installs a single
+        // library-global handler (not per-pool). This state is therefore shared, and
+        // it must be a single instance across translation units (function-local
+        // statics, not header-anonymous-namespace globals which would be per-TU) and
+        // guarded by a mutex because the bridge may be invoked from a library thread
+        // while another thread calls setAbortHandler().
+        inline std::mutex& abortHandlerMutex() { static std::mutex m; return m; }
+        inline std::function<void(std::string_view)>& abortHandler() {
+            static std::function<void(std::string_view)> h;
+            return h;
+        }
+        inline void bridgeAbortHandler(const char* error) {
+            std::function<void(std::string_view)> h;
+            {
+                std::lock_guard<std::mutex> lock(abortHandlerMutex());
+                h = abortHandler();
+            }
+            if (h)
+                h(error);
+        }
+        // @endcond
+    } // namespace detail
     
     /**
      * @brief Exception class for SQL related errors.
@@ -1981,11 +1999,20 @@ namespace zdb {
          * It is an unchecked runtime error to continue using the library after
          * the `abortHandler` was called.
          *
+         * @note The abort handler is process-wide, not per-pool: the underlying
+         *       library keeps a single global handler, so the most recent call on any
+         *       pool wins. The handler may be invoked from a library thread.
+         *
          * @param abortHandler The handler function to call on fatal errors.
          */
         void setAbortHandler(AbortHandler abortHandler = nullptr) noexcept {
-            g_abortHandler = std::move(abortHandler);
-            ConnectionPool_setAbortHandler(t_, g_abortHandler ? bridgeAbortHandler : nullptr);
+            bool hasHandler;
+            {
+                std::lock_guard<std::mutex> lock(detail::abortHandlerMutex());
+                detail::abortHandler() = std::move(abortHandler);
+                hasHandler = static_cast<bool>(detail::abortHandler());
+            }
+            ConnectionPool_setAbortHandler(t_, hasHandler ? detail::bridgeAbortHandler : nullptr);
         }
         
         /**
