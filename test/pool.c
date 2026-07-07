@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <limits.h>
 
 #include "zdb.h"
 
@@ -382,9 +383,13 @@ static void testPool(const char *testURL) {
 
                 // Regression (SQLite): a failing bind must raise an exception, not be
                 // silently swallowed and then executed with the parameter left unbound
-                // (silent data loss). A bind size exceeding SQLITE_LIMIT_LENGTH (default
-                // 1e9) yields SQLITE_TOOBIG; SQLite validates the length before touching
-                // the buffer, so a small buffer with an oversized size triggers it cheaply.
+                // (silent data loss). A bind size exceeding SQLITE_LIMIT_LENGTH yields
+                // SQLITE_TOOBIG; SQLite validates the length before touching the buffer,
+                // so a small buffer with an oversized size triggers it cheaply. The size
+                // must exceed the limit on every build: stock SQLite uses 1e9 but e.g.
+                // macOS ships SQLITE_MAX_LENGTH = 2147483645 (INT_MAX - 2), where a
+                // smaller size passes bind validation and sqlite3_step() then copies
+                // `size` bytes from the small buffer (crash). INT_MAX exceeds both.
                 if (Str_startsWith(testURL, "sqlite")) {
                         printf("\tResult: check bind error is not swallowed..");
                         Connection_execute(con, "drop table if exists toobig_t;");
@@ -393,7 +398,7 @@ static void testPool(const char *testURL) {
                         char smallbuf[16] = "xxxx";
                         volatile int threw = 0;
                         TRY {
-                                PreparedStatement_setSString(pt, 1, smallbuf, 1500000000); // > SQLITE_LIMIT_LENGTH
+                                PreparedStatement_setSString(pt, 1, smallbuf, INT_MAX); // > SQLITE_LIMIT_LENGTH
                                 PreparedStatement_execute(pt);
                         } CATCH(SQLException) {
                                 threw = 1;
