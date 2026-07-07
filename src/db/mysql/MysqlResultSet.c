@@ -81,10 +81,14 @@ static inline void _ensureCapacity(T R, int i) {
                 RESIZE(R->columns[i].buffer, R->columns[i].real_length + 1);
                 R->bind[i].buffer = R->columns[i].buffer;
                 R->bind[i].buffer_length = R->columns[i].real_length;
+                // The statement's internal bind copy may still point to the old
+                // buffer RESIZE just moved, so a rebind is required even if the
+                // fetch below fails and throws: otherwise the next
+                // mysql_stmt_fetch() writes through the stale pointer
+                R->needRebind = true;
                 if ((R->lastError = mysql_stmt_fetch_column(R->stmt, &R->bind[i], i, 0))) {
                         THROW_SQL(mysql_stmt_errno(R->stmt), "mysql_stmt_fetch_column -- %s", mysql_stmt_error(R->stmt));
                 }
-                R->needRebind = true;
         }
 }
 static void _setFetchSize(T R, int rows);
