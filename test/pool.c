@@ -533,6 +533,27 @@ static void testPool(const char *testURL) {
                         printf("success\n");
                 }
 
+                // Regression (MySQL): a non-NULL zero-length blob must be stored as an
+                // empty blob, not SQL NULL (consistent with setString() and PostgreSQL).
+                if (Str_startsWith(testURL, "mysql")) {
+                        printf("\tResult: check empty blob is not stored as NULL..");
+                        Connection_execute(con, "drop table if exists eblob_t;");
+                        Connection_execute(con, "create table eblob_t(id int, b blob);");
+                        PreparedStatement_T p = Connection_prepareStatement(con, "insert into eblob_t values (?, ?);");
+                        PreparedStatement_setInt(p, 1, 1);
+                        char dummy[1] = {0};
+                        PreparedStatement_setBlob(p, 2, dummy, 0); // non-NULL pointer, zero length
+                        PreparedStatement_execute(p);
+                        ResultSet_T r = Connection_executeQuery(con, "select b from eblob_t where id = 1;");
+                        assert(ResultSet_next(r));
+                        assert(ResultSet_isnull(r, 1) == false); // before the fix: stored as NULL
+                        int bsize = -1;
+                        ResultSet_getBlob(r, 1, &bsize);
+                        assert(bsize == 0); // empty blob
+                        Connection_execute(con, "drop table if exists eblob_t;");
+                        printf("success\n");
+                }
+
                 /* Need to close and release statements before
                    we can drop the table, sqlite need this */
                 Connection_clear(con);

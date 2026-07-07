@@ -5,6 +5,11 @@
 Version 3.6.0
 -------------
 
+* Fixed: MySQL: PreparedStatement_setBlob() with a non-NULL, zero-length value
+  bound it as SQL NULL (it keyed NULL-ness off size == 0). A zero-length blob is
+  now stored as an empty blob, consistent with PreparedStatement_setString().
+  Only a NULL pointer binds SQL NULL now.
+
 * Fixed: PostgreSQL: PreparedStatement_setSString() ignored the caller-supplied
   length. libpq ignores paramLengths for text-format parameters and reads the
   value up to the NUL terminator, so binding a length-delimited substring sent
