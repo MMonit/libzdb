@@ -218,8 +218,11 @@ static ResultSet_T _executeQuery(T P) {
 
 static long long _rowsChanged(T P) {
         assert(P);
+        // PQcmdTuples() returns the empty string, never NULL, for commands
+        // without a tuple count (e.g. CREATE TABLE, SET), and Str_parseLLong
+        // would throw on it: return 0 like the other database drivers
         char *changes = PQcmdTuples(P->res);
-        return changes ? Str_parseLLong(changes) : 0;
+        return STR_DEF(changes) ? Str_parseLLong(changes) : 0;
 }
 
 

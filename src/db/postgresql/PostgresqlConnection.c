@@ -266,8 +266,11 @@ static long long _lastRowId(T C) {
 
 static long long _rowsChanged(T C) {
         assert(C);
+        // PQcmdTuples() returns the empty string, never NULL, for commands
+        // without a tuple count (e.g. CREATE TABLE, SET), and Str_parseLLong
+        // would throw on it: return 0 like the other database drivers
         char *changes = PQcmdTuples(C->res);
-        return changes ? Str_parseLLong(changes) : 0;
+        return STR_DEF(changes) ? Str_parseLLong(changes) : 0;
 }
 
 
