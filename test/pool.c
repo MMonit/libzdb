@@ -421,6 +421,22 @@ static void testPool(const char *testURL) {
                         printf("success\n");
                 }
 
+                // Regression (SQLite): a multi-statement Connection_execute() runs each
+                // statement exactly once. (The BUSY/LOCKED retry now re-runs only the
+                // failing statement, not the whole string, so already-committed
+                // statements are never repeated.)
+                if (Str_startsWith(testURL, "sqlite")) {
+                        printf("\tResult: check multi-statement execute..");
+                        Connection_execute(con, "drop table if exists multi_t;");
+                        Connection_execute(con, "create table multi_t(n int);");
+                        Connection_execute(con, "insert into multi_t values (1); insert into multi_t values (2);");
+                        rset = Connection_executeQuery(con, "select count(*) from multi_t;");
+                        assert(ResultSet_next(rset));
+                        assert(ResultSet_getInt(rset, 1) == 2); // each insert ran once
+                        Connection_execute(con, "drop table if exists multi_t;");
+                        printf("success\n");
+                }
+
                 // Regression (PostgreSQL): getBlob() must decode the bytea into an owned
                 // buffer, not mutate the shared PGresult in place. Otherwise a second
                 // getBlob() on the same cell re-decodes already-decoded bytes, and a

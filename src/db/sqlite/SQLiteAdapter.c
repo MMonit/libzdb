@@ -75,17 +75,6 @@ static inline int wait_for_unlock_notify(sqlite3 *db){
 }
 
 
-static inline int sqlite3_blocking_exec(sqlite3 *db, const char *zSql, int (*callback)(void *, int, char **, char **), void *arg, char **errmsg) {
-        int rc;
-        while (SQLITE_LOCKED == (rc = sqlite3_exec(db, zSql, callback, arg, errmsg))) {
-                rc = wait_for_unlock_notify(db);
-                if (rc != SQLITE_OK)
-                        break;
-        }
-        return rc;
-}
-
-
 // MARK: - Blocking API
 
 int zdb_sqlite3_step(sqlite3_stmt *pStmt) {
@@ -110,11 +99,6 @@ int zdb_sqlite3_prepare_v2(sqlite3 *db, const char *zSql, int nSql, sqlite3_stmt
                         break;
         }
         return rc;
-}
-
-
-int zdb_sqlite3_exec(sqlite3 *db, const char *sql) {
-        return sqlite3_blocking_exec(db, sql, NULL, NULL, NULL);
 }
 
 
@@ -164,9 +148,31 @@ int zdb_sqlite3_prepare_v2(sqlite3 *db, const char *zSql, int nSql, sqlite3_stmt
 }
 
 
-int zdb_sqlite3_exec(sqlite3 *db, const char *sql) {
-        return _exec_or_backoff(sqlite3_exec(db, sql, NULL, NULL, NULL));
-}
-
-
 #endif
+
+
+// The 'sql' may contain multiple ';' separated statements. Execute each statement
+// in 'sql' separately, using the per-statement blocking/backoff primitives above
+// (zdb_sqlite3_prepare_v2/zdb_sqlite3_step). Running the whole string with sqlite3_exec()
+// and retrying it on SQLITE_BUSY/SQLITE_LOCKED would re-run statements that already committed,
+// since each statement in a multi-statement string is its own autocommit transaction.
+int zdb_sqlite3_exec(sqlite3 *db, const char *sql) {
+        int rc = SQLITE_OK;
+        const char *tail = sql;
+        while (STR_DEF(tail) && rc == SQLITE_OK) {
+                sqlite3_stmt *stmt = NULL;
+                rc = zdb_sqlite3_prepare_v2(db, tail, -1, &stmt, &tail);
+                if (rc != SQLITE_OK)
+                        break;
+                if (! stmt) // trailing whitespace or a comment-only fragment
+                        continue;
+                int step;
+                do {
+                        step = zdb_sqlite3_step(stmt);
+                } while (step == SQLITE_ROW);
+                sqlite3_finalize(stmt);
+                if (step != SQLITE_DONE)
+                        rc = step; // propagate the error (e.g. BUSY/LOCKED after retries)
+        }
+        return rc;
+}
