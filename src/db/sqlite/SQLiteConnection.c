@@ -245,8 +245,11 @@ static ResultSet_T _executeQuery(T C, const char *sql, va_list ap) {
         StringBuffer_vset(C->sb, sql, ap_copy);
         va_end(ap_copy);
         C->lastError = zdb_sqlite3_prepare_v2(C->db, StringBuffer_toString(C->sb), StringBuffer_length(C->sb), &stmt, &tail);
-        if (C->lastError == SQLITE_OK)
+        if (C->lastError == SQLITE_OK) {
+                if (! stmt) // empty or comment-only SQL: prepare succeeds but produces no statement
+                        THROW(SQLException, "Empty SQL statement");
                 return ResultSet_new(SQLiteResultSet_new(C->delegator, stmt, false), (Rop_T)&sqlite3rops);
+        }
         return NULL;
 }
 
@@ -261,6 +264,8 @@ static PreparedStatement_T _prepareStatement(T C, const char *sql, va_list ap) {
         va_end(ap_copy);
         C->lastError = zdb_sqlite3_prepare_v2(C->db, StringBuffer_toString(C->sb), -1, &stmt, &tail);
         if (C->lastError == SQLITE_OK) {
+                if (! stmt) // empty or comment-only SQL: prepare succeeds but produces no statement
+                        THROW(SQLException, "Empty SQL statement");
                 return PreparedStatement_new(SQLitePreparedStatement_new(C->delegator, stmt), (Pop_T)&sqlite3pops);
         }
         return NULL;

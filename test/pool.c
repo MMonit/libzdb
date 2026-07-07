@@ -407,6 +407,20 @@ static void testPool(const char *testURL) {
                         printf("success\n");
                 }
 
+                // Regression (SQLite): empty or comment-only SQL makes sqlite3_prepare_v2
+                // return SQLITE_OK with a NULL statement. This must raise a clean
+                // SQLException, not an AssertException (or a NULL-deref in NDEBUG builds).
+                if (Str_startsWith(testURL, "sqlite")) {
+                        printf("\tResult: check empty/comment-only SQL raises SQLException..");
+                        volatile int threwQ = 0, threwP = 0;
+                        TRY { Connection_executeQuery(con, "-- just a comment"); }
+                        CATCH(SQLException) { threwQ = 1; } END_TRY;
+                        TRY { Connection_prepareStatement(con, "   "); }
+                        CATCH(SQLException) { threwP = 1; } END_TRY;
+                        assert(threwQ && threwP); // buggy: AssertException instead
+                        printf("success\n");
+                }
+
                 // Regression (PostgreSQL): getBlob() must decode the bytea into an owned
                 // buffer, not mutate the shared PGresult in place. Otherwise a second
                 // getBlob() on the same cell re-decodes already-decoded bytes, and a
