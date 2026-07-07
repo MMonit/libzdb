@@ -63,8 +63,12 @@ static inline void _ensureCapacity(T V) {
                 double grown = round(1.618 * V->length);
                 if (grown >= (double)INT_MAX)
                         THROW(AssertException, "Vector: too many elements (capacity would exceed %d)", INT_MAX);
-                V->capacity = (int)grown;
-		RESIZE(V->array, (size_t)V->capacity * sizeof (void *));
+                // Commit the new capacity only after RESIZE succeeds: RESIZE throws
+                // MemoryException on OOM leaving the old (smaller) array in place,
+                // and capacity must keep describing the buffer we actually own
+                int capacity = (int)grown;
+		RESIZE(V->array, (size_t)capacity * sizeof (void *));
+                V->capacity = capacity;
         }
 }
 

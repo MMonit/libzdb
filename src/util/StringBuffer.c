@@ -72,8 +72,12 @@ static inline void _append(T S, const char *s, va_list ap) {
                         break;
                 }
                 int need = S->used + n + 1; // cannot overflow: n < INT_MAX - used
-                S->length = (need > INT_MAX - STRLEN) ? INT_MAX : need + STRLEN;
-                RESIZE(S->buffer, S->length);
+                int length = (need > INT_MAX - STRLEN) ? INT_MAX : need + STRLEN;
+                // Commit the new length only after RESIZE succeeds: RESIZE throws
+                // MemoryException on OOM leaving the old (smaller) buffer in place,
+                // and length must keep describing the buffer we actually own
+                RESIZE(S->buffer, length);
+                S->length = length;
         }
 }
 
@@ -88,8 +92,9 @@ static int _prepare(T S, char prefix) {
                 int extra = (n <= 9) ? n : (2 * n - 9);
                 int new_used = S->used + extra;
                 if (new_used >= S->length) {
+                        // RESIZE before committing length, see _append()
+                        RESIZE(S->buffer, new_used + 1);
                         S->length = new_used + 1;
-                        RESIZE(S->buffer, S->length);
                 }
                 int r = S->used - 1;
                 int w = new_used - 1;

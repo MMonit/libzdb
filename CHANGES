@@ -13,6 +13,9 @@ Version 3.6.0
   strlen()'s size_t to an int, silently binding a wrong or empty value for a string
   larger than INT_MAX; it now raises an SQLException instead.
 
+* Fixed: When Vector or StringBuffer grow operation failed due to out-of-memory,
+  (e.g. StringBuffer_append), the length was incorrectly set to the planned capacity.
+
 * Fixed: ConnectionPool: a throw inside the pool mutex's critical section leaked the
   mutex and permanently deadlocked the pool. ConnectionPool_start() and
   _createConnection() used LOCK/END_LOCK, whose unlock is skipped when an exception
