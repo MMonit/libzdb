@@ -94,6 +94,7 @@ static void testPool(const char *testURL) {
                 assert(pool);
                 ConnectionPool_setReaper(pool, 0); // disable reaper
                 ConnectionPool_start(pool);
+                assert(ConnectionPool_size(pool) == ConnectionPool_getInitialConnections(pool));
                 ConnectionPool_stop(pool);
                 ConnectionPool_free(&pool);
                 assert(pool==NULL);

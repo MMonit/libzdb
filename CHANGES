@@ -18,6 +18,9 @@ Version 3.6.0
   as a consequence, getString() on a bytea column now consistently returns the
   escaped text representation (e.g. "\x...."); use getBlob() for the raw bytes.
 
+* Fixed: ConnectionPool_size() read the pool vector without holding the mutex, while
+  other threads may add/remove connections.
+
 * Fixed: ConnectionPool: calling ConnectionPool_setReaper(pool, 0) after
   ConnectionPool_start() did not stop the already-running reaper thread, and
   ConnectionPool_stop() then decided whether to join it from the now-cleared

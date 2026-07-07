@@ -487,7 +487,13 @@ int ConnectionPool_reapConnections(T P) {
 
 int ConnectionPool_size(T P) {
         assert(P);
-        return Vector_size(P->pool);
+        int size = 0;
+        LOCK(P->mutex)
+        {
+                size = Vector_size(P->pool);
+        }
+        END_LOCK;
+        return size;
 }
 
 
