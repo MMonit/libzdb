@@ -18,6 +18,13 @@ Version 3.6.0
   as a consequence, getString() on a bytea column now consistently returns the
   escaped text representation (e.g. "\x...."); use getBlob() for the raw bytes.
 
+* Fixed: ConnectionPool memory leaks on error:
+  - _createConnection() is called concurrently from ConnectionPool_getConnection(),
+    and passed the pool's P->error to Connection_new() outside the lock, so two threads
+    failing to create a connection at once raced, overwriting and leaking each other's
+    message and racing the subsequent read/free.
+  - Repeated failed ConnectionPool_start() leaked the previous error message.
+
 * Fixed: ConnectionPool_size() read the pool vector without holding the mutex, while
   other threads may add/remove connections.
 

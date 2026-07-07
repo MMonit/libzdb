@@ -61,7 +61,6 @@ struct ConnectionPool_S {
         bool filled;
         bool doSweep;
         bool reaperStarted;
-        char *error;
         Sem_T alarm;
         Mutex_T mutex;
         Vector_T pool;
@@ -111,16 +110,23 @@ static void _drainPool(T P) {
 }
 
 
-static bool _fillPool(T P) {
+static bool _fillPool(T P, char error[static STRLEN]) {
         for (int i = 0; i < P->initialConnections; i++) {
-                Connection_T con = Connection_new(P, &P->error);
+                char *connectionError = NULL;
+                Connection_T con = Connection_new(P, &connectionError);
                 if (! con) {
+                        bool rv = false;
                         if (i > 0) {
-                                DEBUG("Failed to fill the pool with initial connections -- %s\n", P->error);
-                                FREE(P->error);
-                                return true;
+                                // Some connection were opened => partial error (can be ignored, more connections will be opened on demand)
+                                DEBUG("The pool has been filled with initial connections only partially -- %s\n", STR_DEF(connectionError) ? connectionError : "unknown error");
+                                rv = true;
+                        } else {
+                                // Report the failure to ConnectionPool_start()
+                                snprintf(error, STRLEN, "%s", STR_DEF(connectionError) ? connectionError : "unknown error");
                         }
-                        return false;
+                        FREE(connectionError);
+                        // Stop the pool initialization on first error
+                        return rv;
                 }
                 Vector_push(P->pool, con);
         }
@@ -156,19 +162,20 @@ static inline Connection_T _getAvailableConnection(T P) {
 
 
 static inline Connection_T _createConnection(T P, char error[static STRLEN]) {
-        Connection_T con = Connection_new(P, &P->error);
+        char *connectionError = NULL;
+        Connection_T con = Connection_new(P, &connectionError);
         LOCK(P->mutex)
         {
                 if (con) {
                         Connection_setAvailable(con, false);
                         Vector_push(P->pool, con);
-                } else {
-                        snprintf(error, STRLEN, "Failed to create a connection -- %s",
-                                 STR_DEF(P->error) ? P->error : "unknown error");
-                        FREE(P->error);
                 }
         }
         END_LOCK;
+        if (! con) {
+                snprintf(error, STRLEN, "Failed to create a connection -- %s", STR_DEF(connectionError) ? connectionError : "unknown error");
+                FREE(connectionError);
+        }
         return con;
 }
 
@@ -298,7 +305,6 @@ void ConnectionPool_free(T *P) {
         Vector_free(&pool);
         Mutex_destroy((*P)->mutex);
         Sem_destroy((*P)->alarm);
-        FREE((*P)->error);
         FREE(*P);
 }
 
@@ -391,11 +397,13 @@ void ConnectionPool_setReaper(T P, int sweepInterval) {
 
 void ConnectionPool_start(T P) {
         assert(P);
+        bool filled = false;
+        char error[STRLEN] = {};
         LOCK(P->mutex)
         {
                 P->stopped = false;
                 if (! P->filled) {
-                        P->filled = _fillPool(P);
+                        P->filled = _fillPool(P, error);
                         if (P->filled) {
                                 if (P->doSweep) {
                                         DEBUG("Starting Database reaper thread\n");
@@ -404,10 +412,11 @@ void ConnectionPool_start(T P) {
                                 }
                         }
                 }
+                filled = P->filled;
         }
         END_LOCK;
-        if (! P->filled)
-                THROW(SQLException, "Failed to start connection pool -- %s", P->error);
+        if (! filled)
+                THROW(SQLException, "Failed to start connection pool -- %s", error);
 }
 
 
