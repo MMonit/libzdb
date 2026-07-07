@@ -164,14 +164,20 @@ static inline Connection_T _getAvailableConnection(T P) {
 static inline Connection_T _createConnection(T P, char error[static STRLEN]) {
         char *connectionError = NULL;
         Connection_T con = Connection_new(P, &connectionError);
-        LOCK(P->mutex)
+        Mutex_lock(P->mutex);
+        // Vector_push() can throw on out-of-memory => handle exceptions
+        TRY
         {
                 if (con) {
                         Connection_setAvailable(con, false);
                         Vector_push(P->pool, con);
                 }
         }
-        END_LOCK;
+        FINALLY
+        {
+                Mutex_unlock(P->mutex);
+        }
+        END_TRY;
         if (! con) {
                 snprintf(error, STRLEN, "Failed to create a connection -- %s", STR_DEF(connectionError) ? connectionError : "unknown error");
                 FREE(connectionError);
@@ -399,7 +405,10 @@ void ConnectionPool_start(T P) {
         assert(P);
         bool filled = false;
         char error[STRLEN] = {};
-        LOCK(P->mutex)
+        // Handle exceptions: Thread_create() failing, or an out-of-memory in _fillPool()
+        // must still unlock the mutex
+        Mutex_lock(P->mutex);
+        TRY
         {
                 P->stopped = false;
                 if (! P->filled) {
@@ -414,7 +423,11 @@ void ConnectionPool_start(T P) {
                 }
                 filled = P->filled;
         }
-        END_LOCK;
+        FINALLY
+        {
+                Mutex_unlock(P->mutex);
+        }
+        END_TRY;
         if (! filled)
                 THROW(SQLException, "Failed to start connection pool -- %s", error);
 }
