@@ -31,6 +31,7 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <limits.h>
 
 
 /**
@@ -173,10 +174,15 @@ int Str_parseInt(const char *s) {
                 THROW(SQLException, "NumberFormatException: For input string null");
         errno = 0;
         char *e;
-        int i = (int)strtol(s, &e, 10);
+        long l = strtol(s, &e, 10);
         if (errno || (e == s))
                 THROW(SQLException, "NumberFormatException: For input string %s -- %s", s, System_getLastError());
-        return i;
+        // long is wider than int on LP64: strtol only sets ERANGE outside
+        // [LONG_MIN, LONG_MAX], so a value that fits in a long but not in an
+        // int would otherwise be silently truncated by the cast
+        if (l < INT_MIN || l > INT_MAX)
+                THROW(SQLException, "NumberFormatException: For input string %s -- %s", s, System_getError(ERANGE));
+        return (int)l;
 }
 
 
