@@ -539,6 +539,13 @@ ResultSet_T Connection_executeQuery(T C, const char *sql, ...) __attribute__((fo
  * which may take several statements. A PreparedStatement is valid until the
  * Connection is returned to the Connection Pool.
  *
+ * Warning #1: Maximum 99 IN parameter placeholders are supported.
+ *
+ * Warning #2: libzdb translates the '?' into '$<number>' (PostgreSQL format)
+ * or ':<number>' (Oracle format) in the whole statement. If the '?' is present
+ * in a quoted literal, identifier, line-comment or block-comment, the behaviour
+ * is undefined.
+ *
  * @param C A Connection object
  * @param sql A single SQL statement that may contain one or more '?'
  * IN parameter placeholders
