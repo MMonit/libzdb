@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <limits.h>
 
 #include "StringBuffer.h"
 
@@ -59,11 +60,19 @@ static inline void _append(T S, const char *s, va_list ap) {
                 va_copy(ap_copy, ap);
                 int n = vsnprintf((char*)(S->buffer + S->used), S->length - S->used, s, ap_copy);
                 va_end(ap_copy);
+                if (n < 0)
+                        THROW(AssertException, "StringBuffer: vsnprintf failed");
+                // The buffer size is an int; reject content that would not fit
+                // (used + n + 1 bytes are needed) rather than overflowing to a
+                // negative length and passing garbage sizes to RESIZE.
+                if (n >= INT_MAX - S->used)
+                        THROW(AssertException, "StringBuffer: content exceeds the maximum size of %d bytes", INT_MAX);
                 if ((S->used + n) < S->length) {
                         S->used += n;
                         break;
                 }
-                S->length += STRLEN + n;
+                int need = S->used + n + 1; // cannot overflow: n < INT_MAX - used
+                S->length = (need > INT_MAX - STRLEN) ? INT_MAX : need + STRLEN;
                 RESIZE(S->buffer, S->length);
         }
 }

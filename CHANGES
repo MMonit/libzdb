@@ -5,6 +5,14 @@
 Version 3.6.0
 -------------
 
+* Fixed: hardened size arithmetic against integer overflow (only reachable with
+  ~2 GB inputs). StringBuffer growth (used/length are int) and Vector growth
+  (capacity computed as round(1.618 * length) and stored in an int) could overflow
+  to a negative value and pass a garbage size to the reallocator; they now reject an
+  oversized buffer with an exception. PreparedStatement_setString() truncated
+  strlen()'s size_t to an int, silently binding a wrong or empty value for a string
+  larger than INT_MAX; it now raises an SQLException instead.
+
 * Fixed: ConnectionPool: a throw inside the pool mutex's critical section leaked the
   mutex and permanently deadlocked the pool. ConnectionPool_start() and
   _createConnection() used LOCK/END_LOCK, whose unlock is skipped when an exception

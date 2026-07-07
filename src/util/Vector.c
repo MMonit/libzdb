@@ -27,6 +27,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <limits.h>
 
 #include "Vector.h"
 
@@ -55,8 +56,15 @@ struct T {
 
 static inline void _ensureCapacity(T V) {
         if (V->length >= V->capacity) {
-                V->capacity = round(1.618 * V->length);
-		RESIZE(V->array, V->capacity * sizeof (void *));
+                // Grow by ~1.618x. Compute in double and reject a capacity that would
+                // not fit in the int field (>~1.3e9 elements): otherwise the double->int
+                // conversion is undefined and could yield a negative capacity, which
+                // becomes a huge size_t in the RESIZE below.
+                double grown = round(1.618 * V->length);
+                if (grown >= (double)INT_MAX)
+                        THROW(AssertException, "Vector: too many elements (capacity would exceed %d)", INT_MAX);
+                V->capacity = (int)grown;
+		RESIZE(V->array, (size_t)V->capacity * sizeof (void *));
         }
 }
 
