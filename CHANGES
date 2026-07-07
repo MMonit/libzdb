@@ -157,14 +157,6 @@ Version 3.6.0
   timestamp. NOTE: C++ code that relied on binding a time_t as a timestamp
   must now pass a std::chrono::system_clock::time_point instead.
 
-* Fixed: C++, ConnectionPool::setAbortHandler() kept the std::function bridge state
-  in an anonymous namespace inside the header, so every translation unit had its own
-  copy and the handler seen by the library depended on which unit last set it; the
-  std::function was also reassigned without synchronization while it could be invoked
-  from a library thread (a data race). The state is now a single, mutex-protected
-  instance shared across translation units. Documented that the handler is
-  process-wide, not per-pool (the underlying C API keeps one global handler).
-
 Version 3.5.0
 -------------
 
