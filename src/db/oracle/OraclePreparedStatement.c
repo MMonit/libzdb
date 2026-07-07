@@ -229,8 +229,10 @@ static void _setDouble(T P, int parameterIndex, double x) {
 static void _setBlob(T P, int parameterIndex, const void *x, int size) {
         assert(P);
         int i = checkAndSetParameterIndex(parameterIndex, P->parameterCount);
-        // Handle NULL blob
-        if (x == NULL || size <= 0) {
+        // Only a NULL pointer binds SQL NULL: a non-NULL, zero-length value is
+        // stored as an empty blob, consistent with PreparedStatement_setString()
+        // and the other database drivers
+        if (x == NULL) {
                 P->params[i].is_null = OCI_IND_NULL;
                 P->params[i].length = 0;
                 P->lastError = OCIBindByPos(P->stmt, &P->params[i].bind, P->err, parameterIndex,
@@ -256,12 +258,16 @@ static void _setBlob(T P, int parameterIndex, const void *x, int size) {
                                              FALSE, OCI_DURATION_SESSION);
         if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO)
                 THROW(SQLException, "%s", ERR(P));
-        // Write data to temporary LOB
-        oraub8 amt = size;
-        P->lastError = OCILobWrite2(P->svc, P->err, P->params[i].lob_loc, &amt, NULL, 1,
-                                    (void *)x, (oraub8)size, OCI_ONE_PIECE, NULL, NULL, 0, SQLCS_IMPLICIT);
-        if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO)
-                THROW(SQLException, "%s", ERR(P));
+        // Write data to the temporary LOB. A zero-length value skips the write
+        // and binds the freshly created, still empty temporary BLOB, as
+        // OCILobWrite2() does not accept a zero amount
+        if (size > 0) {
+                oraub8 amt = size;
+                P->lastError = OCILobWrite2(P->svc, P->err, P->params[i].lob_loc, &amt, NULL, 1,
+                                            (void *)x, (oraub8)size, OCI_ONE_PIECE, NULL, NULL, 0, SQLCS_IMPLICIT);
+                if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO)
+                        THROW(SQLException, "%s", ERR(P));
+        }
         // Bind the LOB locator
         P->params[i].is_null = OCI_IND_NOTNULL;
         P->params[i].length = sizeof(OCILobLocator *);

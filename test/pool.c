@@ -596,11 +596,16 @@ static void testPool(const char *testURL) {
                         printf("success\n");
                 }
 
-                // Regression (MySQL): a non-NULL zero-length blob must be stored as an
-                // empty blob, not SQL NULL (consistent with setString() and PostgreSQL).
-                if (Str_startsWith(testURL, "mysql")) {
+                // Regression (MySQL, Oracle): a non-NULL zero-length blob must be stored
+                // as an empty blob, not SQL NULL (consistent with setString() and
+                // PostgreSQL).
+                if (Str_startsWith(testURL, "mysql") || Str_startsWith(testURL, "oracle")) {
                         printf("\tResult: check empty blob is not stored as NULL..");
-                        Connection_execute(con, "drop table if exists eblob_t;");
+                        // Oracle has no DROP TABLE IF EXISTS: ignore "table does not exist"
+                        TRY
+                                Connection_execute(con, "drop table eblob_t;");
+                        ELSE
+                        END_TRY;
                         Connection_execute(con, "create table eblob_t(id int, b blob);");
                         PreparedStatement_T p = Connection_prepareStatement(con, "insert into eblob_t values (?, ?);");
                         PreparedStatement_setInt(p, 1, 1);
@@ -613,7 +618,7 @@ static void testPool(const char *testURL) {
                         int bsize = -1;
                         ResultSet_getBlob(r, 1, &bsize);
                         assert(bsize == 0); // empty blob
-                        Connection_execute(con, "drop table if exists eblob_t;");
+                        Connection_execute(con, "drop table eblob_t;");
                         printf("success\n");
                 }
 
