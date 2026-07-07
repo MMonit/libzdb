@@ -109,6 +109,11 @@ static long _getColumnSize(T R, int columnIndex) {
 
 static bool _next(T R) {
         assert(R);
+        // Once the result set is exhausted, keep returning false: since
+        // SQLite 3.7 sqlite3_step() on a statement that returned SQLITE_DONE
+        // auto-resets and silently re-runs the query from the first row
+        if (R->lastError == SQLITE_DONE)
+                return false;
         if (R->maxRows && (R->currentRow++ >= R->maxRows))
                 return false;
         R->lastError = zdb_sqlite3_step(R->stmt);

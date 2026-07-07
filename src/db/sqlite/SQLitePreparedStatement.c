@@ -145,9 +145,15 @@ static void _execute(T P) {
         switch (P->lastError) {
                 case SQLITE_DONE:
                         sqlite3_reset(P->stmt);
+                        // Clear lastError so the statement can be reused with
+                        // _executeQuery(), which refuses to run unless the state
+                        // is SQLITE_OK: only a failed bind should block execution
+                        P->lastError = SQLITE_OK;
                         break;
                 case SQLITE_ROW:
                         sqlite3_reset(P->stmt);
+                        // The statement is reset and remains reusable
+                        P->lastError = SQLITE_OK;
                         THROW(SQLException, "Select statement not allowed in PreparedStatement_execute()");
                         break;
                 default:

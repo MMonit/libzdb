@@ -442,6 +442,34 @@ static void testPool(const char *testURL) {
                         printf("success\n");
                 }
 
+                // Regression (SQLite): a successful PreparedStatement_execute() left
+                // lastError = SQLITE_DONE, so reusing the same (documented reusable)
+                // prepared statement with PreparedStatement_executeQuery() threw a
+                // spurious SQLException whose message was "not an error".
+                if (Str_startsWith(testURL, "sqlite")) {
+                        printf("\tResult: check prepared statement execute/executeQuery reuse..");
+                        PreparedStatement_T rp = Connection_prepareStatement(con, "update zild_t set percent = percent where id = 1;");
+                        PreparedStatement_execute(rp);
+                        ResultSet_T rr = PreparedStatement_executeQuery(rp); // threw before the fix
+                        assert(rr);
+                        printf("success\n");
+                }
+
+                // Regression (SQLite): calling ResultSet_next() again after it returned
+                // false re-ran the query from the first row (sqlite3_step() auto-resets
+                // a done statement since SQLite 3.7). It must keep returning false.
+                if (Str_startsWith(testURL, "sqlite")) {
+                        printf("\tResult: check next() after the last row keeps returning false..");
+                        rset = Connection_executeQuery(con, "select id from zild_t;");
+                        int nrows = 0;
+                        while (ResultSet_next(rset))
+                                nrows++;
+                        assert(nrows == 12);
+                        assert(! ResultSet_next(rset)); // restarted from row 1 before the fix
+                        assert(! ResultSet_next(rset));
+                        printf("success\n");
+                }
+
                 // Regression (PostgreSQL): getBlob() must decode the bytea into an owned
                 // buffer, not mutate the shared PGresult in place. Otherwise a second
                 // getBlob() on the same cell re-decodes already-decoded bytes, and a
