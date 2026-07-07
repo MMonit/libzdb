@@ -52,8 +52,8 @@ struct T {
         int columnCount;
         PGresult *res;
         Connection_T delegator;
-        uchar_t **blob;   // per-column decoded blob for the current row, NULL until read
-        int *blobSize;    // decoded size for each cached blob
+        int *blobSize;    // per-column decoded size for the current row, or -1
+                          // while the cell has not been decoded in place yet
 };
 #define ISFIRSTOCTDIGIT(CH) ((CH) >= '0' && (CH) <= '3')
 #define ISOCTDIGIT(CH) ((CH) >= '0' && (CH) <= '7')
@@ -68,8 +68,8 @@ struct T {
 // https://www.postgresql.org/docs/current/datatype-binary.html
 // 'dest' must have room for at least 'len' bytes (the decoded form is never
 // longer than the escaped form). Returns the number of decoded bytes.
-// The 'src' (the PGresult buffer) is not modified, so getString() and repeated
-// getBlob() on the same cell remain correct.
+// May be called with dest == src to decode in place: in both formats the write
+// position never overtakes the read position.
 static inline int _unescape_bytea(const uchar_t *src, int len, uchar_t *dest) {
         register int i, j;
         if (len >= 2 && src[0] == '\\' && src[1] == 'x') { // bytea hex format
@@ -117,12 +117,10 @@ static inline int _unescape_bytea(const uchar_t *src, int len, uchar_t *dest) {
 }
 
 
-// Free the decoded blob buffers cached for the current row.
+// Forget the per-column decoded state, the flags belong to a single row.
 static void _clearBlobs(T R) {
-        if (R->blob)
-                for (int i = 0; i < R->columnCount; i++)
-                        if (R->blob[i])
-                                FREE(R->blob[i]);
+        for (int i = 0; i < R->columnCount; i++)
+                R->blobSize[i] = -1;
 }
 
 /* ------------------------------------------------------------- Constructor */
@@ -139,8 +137,8 @@ T PostgresqlResultSet_new(Connection_T delegator, PGresult *res) {
         R->columnCount = PQnfields(R->res);
         R->rowCount = PQntuples(R->res);
         if (R->columnCount > 0) {
-                R->blob = CALLOC(R->columnCount, sizeof *R->blob);
                 R->blobSize = CALLOC(R->columnCount, sizeof *R->blobSize);
+                _clearBlobs(R);
         }
         return R;
 }
@@ -151,8 +149,6 @@ T PostgresqlResultSet_new(Connection_T delegator, PGresult *res) {
 
 static void _free(T *R) {
         assert(R && *R);
-        _clearBlobs(*R);
-        FREE((*R)->blob);
         FREE((*R)->blobSize);
         FREE(*R);
 }
@@ -205,25 +201,22 @@ static const char *_getString(T R, int columnIndex) {
 }
 
 
-// Decode the escaped bytea value into an owned per-column buffer (cached for the
-// current row) rather than mutating the shared PGresult in place. This keeps
-// getString() correct and makes repeated getBlob() on the same cell idempotent.
+// Decode the escaped bytea value in place inside the PGresult buffer (no extra allocation, the decoded form is never longer than the escaped form).
 static const void *_getBlob(T R, int columnIndex, int *size) {
         assert(R);
         int i = checkAndSetColumnIndex(columnIndex, R->columnCount);
         *size = 0;
         if (PQgetisnull(R->res, R->currentRow, i))
                 return NULL;
-        if (! R->blob[i]) {
-                const uchar_t *src = (const uchar_t*)PQgetvalue(R->res, R->currentRow, i);
-                int len = PQgetlength(R->res, R->currentRow, i);
-                uchar_t *dest = ALLOC(len + 1); // decoded form is never longer than the escaped form
-                R->blobSize[i] = _unescape_bytea(src, len, dest);
-                dest[R->blobSize[i]] = 0;
-                R->blob[i] = dest;
+        uchar_t *value = (uchar_t*)PQgetvalue(R->res, R->currentRow, i);
+        // If R->blobSize[i] is -1, this is the first _getBlob() call and escaping is needed. Repeated getBlob() on the same cell skips the decode.
+        // Note that getString() on the same cell after getBlob() returns the decoded binary, not the original escaped text.
+        if (R->blobSize[i] < 0) {
+                R->blobSize[i] = _unescape_bytea(value, PQgetlength(R->res, R->currentRow, i), value);
+                value[R->blobSize[i]] = 0;
         }
         *size = R->blobSize[i];
-        return R->blob[i];
+        return value;
 }
 
 

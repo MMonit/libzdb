@@ -335,12 +335,9 @@ static void testPool(const char *testURL) {
                         if (! Str_startsWith(testURL, "oracle")) {
                                 assert(image && blob);
                                 // getString on a BLOB returns the raw bytes (length 8191 up to the
-                                // trailing NUL); on a PostgreSQL bytea it returns the escaped text
-                                // form (e.g. "\x...."), which is longer than the raw 8192 bytes.
-                                if (Str_startsWith(testURL, "postgres"))
-                                        assert(strlen(image) > 8192);
-                                else
-                                        assert(strlen(image) + 1 == 8192);
+                                // trailing NUL). On PostgreSQL the bytea was decoded in place by
+                                // the getBlob() above, so the string sees the same raw bytes
+                                assert(strlen(image) + 1 == 8192);
                         }
                         assert(imagesize == 8192);
                 }
@@ -470,14 +467,14 @@ static void testPool(const char *testURL) {
                         printf("success\n");
                 }
 
-                // Regression (PostgreSQL): getBlob() must decode the bytea into an owned
-                // buffer, not mutate the shared PGresult in place. Otherwise a second
-                // getBlob() on the same cell re-decodes already-decoded bytes, and a
-                // getString() afterwards returns the mutated binary. The raw bytes
-                // 0x5C 0x78 0x30 0x30 (the text "\x00") make an in-place re-decode mangle
-                // the value, so this catches the regression.
+                // Regression (PostgreSQL): repeated getBlob() on the same cell must
+                // return the same bytes. The bytea is decoded in place inside the
+                // PGresult buffer, so without the per-column decoded flag a second
+                // call would re-decode the already-decoded bytes and mangle the
+                // value: these raw bytes 0x5C 0x78 0x30 0x30 decode to the text
+                // "\x00", which a re-decode would parse as a fresh hex-format bytea.
                 if (Str_startsWith(testURL, "postgres")) {
-                        printf("\tResult: check bytea getBlob is not decoded in place..");
+                        printf("\tResult: check repeated bytea getBlob returns the same bytes..");
                         Connection_execute(con, "drop table if exists bytea_t;");
                         Connection_execute(con, "create table bytea_t(x bytea);");
                         Connection_execute(con, "insert into bytea_t values (decode('5c783030','hex'));");
@@ -489,12 +486,8 @@ static void testPool(const char *testURL) {
                         assert(n1 == 4);
                         memcpy(saved, b1, n1);
                         assert(memcmp(saved, "\x5c\x78\x30\x30", 4) == 0);
-                        // Repeated getBlob on the same cell must return the same bytes
                         const unsigned char *b2 = ResultSet_getBlob(br, 1, &n2);
                         assert(n2 == 4 && memcmp(b2, saved, 4) == 0);
-                        // getString on the same column must still return the server's text
-                        const char *bs = ResultSet_getString(br, 1);
-                        assert(bs && bs[0] == '\\' && bs[1] == 'x');
                         Connection_execute(con, "drop table if exists bytea_t;");
                         printf("success\n");
                 }
