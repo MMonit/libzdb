@@ -22,12 +22,6 @@ Version 3.6.0
   longjmps out of the block, e.g. Thread_create() failing to start the reaper thread
   (EAGAIN under thread/fd pressure) or an out-of-memory while filling the pool.
 
-* Fixed: PostgreSQL and Oracle: Prepared statements: The "?" character inside quoted
-  literal, quoted identifier, line-comment, or block-comment broke the prepared statement,
-  as each "?" character was counted as a placeholder regardless of context. In addition
-  to breaking the expected parameters count, it has been escaped as "$<number>" (PostgreSQL
-  style) or ":<number>" (Oracle style), corrupting the original text.
-
 * Fixed: SQLite: preparing empty or comment-only SQL (e.g. Connection_executeQuery()
   or Connection_prepareStatement() with "-- comment") made sqlite3_prepare_v2()
   return SQLITE_OK with a NULL statement, which triggered an AssertException (or a
