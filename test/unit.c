@@ -943,6 +943,24 @@ static void testStringBuffer(void) {
                         assert(sb == NULL);
                 }
                 END_TRY;
+                // Regression: a ? inside a string literal, quoted identifier or
+                // comment is SQL content, not a parameter placeholder
+                sb = StringBuffer_new("select * from t where a = ? and note = 'why?';");
+                assert(StringBuffer_prepare4postgres(sb) == 1);
+                assert(Str_isEqual(StringBuffer_toString(sb), "select * from t where a = $1 and note = 'why?';"));
+                StringBuffer_free(&sb);
+                assert(sb == NULL);
+                sb = StringBuffer_new("select \"col?\" from t where x = ? -- line? comment\n and y = ? /* block ? /* nested? */ comment */ and z = 'a''b?';");
+                assert(StringBuffer_prepare4oracle(sb) == 2);
+                assert(Str_isEqual(StringBuffer_toString(sb), "select \"col?\" from t where x = :1 -- line? comment\n and y = :2 /* block ? /* nested? */ comment */ and z = 'a''b?';"));
+                StringBuffer_free(&sb);
+                assert(sb == NULL);
+                // Unterminated literal: everything after the opening quote is literal
+                sb = StringBuffer_new("select ? from t where c = 'oops?");
+                assert(StringBuffer_prepare4postgres(sb) == 1);
+                assert(Str_isEqual(StringBuffer_toString(sb), "select $1 from t where c = 'oops?"));
+                StringBuffer_free(&sb);
+                assert(sb == NULL);
                 // Just 99 ?'s
                 sb = StringBuffer_new("???????????????????????????????????????????????????????????????????????????????????????????????????");
                 assert(StringBuffer_prepare4postgres(sb) == 99);

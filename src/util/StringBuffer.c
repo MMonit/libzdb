@@ -82,36 +82,114 @@ static inline void _append(T S, const char *s, va_list ap) {
 }
 
 
-// Replace all occurences of ? in this string buffer with prefix[1..99]
+// Replace all occurences of ? in this string buffer with prefix[1..99]. The scan is context-aware: a "?" character inside a string literal, a quoted identifier, a "-- comment"
+// or a /*...*/ block comment is not a placeholder parameter, but part of SQL content, and need to be left untouched.
 static int _prepare(T S, char prefix) {
-        int n, i;
-        for (n = i = 0; S->buffer[i]; i++) if (S->buffer[i] == '?') n++;
-        if (n > 99)
-                THROW(SQLException, "Max 99 parameters are allowed in a prepared statement. Found %d parameters in statement", n);
-        else if (n) {
-                int extra = (n <= 9) ? n : (2 * n - 9);
-                // used + extra + 1 bytes are needed; reject content that would not fit rather than overflowing to a negative size
+        int placeholderCount = 0;
+        int positions[99]; // Maximum 99 parameters allowed
+
+        // 1st loop: Count placeholder parameters and record their offset
+        for (int i = 0; S->buffer[i]; i++) {
+                uchar_t c = S->buffer[i];
+                if (c == '\'' || c == '"') {
+                        // Start of quoted-string or quoted-identifier, ignore "?" in this context
+                        i++;
+                        while (S->buffer[i]) {
+                                if (S->buffer[i] == c) {
+                                        // Found quote (' or "), perform lookahead to check if it's escaped quote ('' or "")
+                                        if (S->buffer[i + 1] == c) {
+                                                // Escaped quote, still inside the quoted-string or quoted-identifier
+                                                i += 2;
+                                        } else {
+                                                // Closing quote (' or ")
+                                                break;
+                                        }
+                                } else {
+                                        // Another character inside the quoted-string or quoted-identifier
+                                        i++;
+                                }
+                        }
+                        if (! S->buffer[i]) {
+                                // End of string => unterminated literal
+                                break;
+                        }
+                } else if (c == '-' && S->buffer[i + 1] == '-') {
+                        // Line comment: the rest of this line past "--" should be ignored
+                        i += 2;
+                        while (S->buffer[i] && S->buffer[i] != '\n') {
+                                // Another line character
+                                i++;
+                        }
+                        if (! S->buffer[i]) {
+                                // End of string
+                                break;
+                        }
+                } else if (c == '/' && S->buffer[i + 1] == '*') {
+                        // Start of block comment
+                        int depth = 1; // Nested block comments are allowed in PostgreSQL => depth counter
+                        i += 2;
+                        while (S->buffer[i] && depth > 0) {
+                                if (S->buffer[i] == '/' && S->buffer[i + 1] == '*') {
+                                        // Nested block comment start
+                                        depth++;
+                                        i += 2;
+                                } else if (S->buffer[i] == '*' && S->buffer[i + 1] == '/') {
+                                        // Block comment end
+                                        depth--;
+                                        i += 2;
+                                } else {
+                                        // Character inside comment
+                                        i++;
+                                }
+                        }
+                        i--; // compensate the outer i++
+                } else if (c == '?') {
+                        // A placeholder parameter (not part of literal nor comment)
+                        if (placeholderCount < 99)
+                                positions[placeholderCount] = i;
+                        placeholderCount++;
+                }
+        }
+
+        if (placeholderCount > 99) {
+                // Sanity check
+                THROW(SQLException, "Max 99 parameters are allowed in a prepared statement. Found %d parameters in statement", placeholderCount);
+        } else if (placeholderCount) {
+                // At least one placeholder parameter is present
+
+                // How many extra bytes we need for placeholder escaping. E.g. postgresql uses "$<number>" pattern => need extra 1 byte for "?" -> "$[1-9]" and extra 2 bytes
+                // for "$[10-99]" (ditto Oracle pattern ":[1-99]")
+                int extra = (placeholderCount <= 9) ? placeholderCount : (2 * placeholderCount - 9);
+
+                // Sanity check: StringBuffer length is limited to 'int' maximum => make sure the new statement size won't wrap the INT_MAX, as (used + extra + 1) bytes are needed
                 if (extra >= INT_MAX - S->used)
                         THROW(AssertException, "StringBuffer: content exceeds the maximum size of %d bytes", INT_MAX);
+
                 int new_used = S->used + extra;
                 if (new_used >= S->length) {
-                        // RESIZE before committing length, see _append()
+                        // RESIZE may throw error on out-of-memory, let it bubble up
                         RESIZE(S->buffer, new_used + 1);
                         S->length = new_used + 1;
                 }
+
+                // 2nd loop: right-to-left escaping: Move the characters to the right and replace "?" placeholders with db specific pattern (e.g. "$<number>" for postgresql)
                 int r = S->used - 1;
                 int w = new_used - 1;
-                int j = n;
+                int currentPlaceholder = placeholderCount;
                 while (r >= 0) {
-                        if (S->buffer[r] == '?') {
-                                if (j >= 10) {
-                                        S->buffer[w--] = '0' + (j % 10);
-                                        S->buffer[w--] = '0' + (j / 10);
+                        if (currentPlaceholder > 0 && r == positions[currentPlaceholder - 1]) {
+                                // The character is on the "?" placeholder position, identified during the first loop => escape
+                                if (currentPlaceholder >= 10) {
+                                        // Two digits
+                                        S->buffer[w--] = '0' + (currentPlaceholder % 10);
+                                        S->buffer[w--] = '0' + (currentPlaceholder / 10);
                                 } else {
-                                        S->buffer[w--] = '0' + j;
+                                        // One digit
+                                        S->buffer[w--] = '0' + currentPlaceholder;
                                 }
+                                // Push db-specific prefix ("$" for PostgreSQL, ":" for Oracle) in front of the parameter <number> we just printed to the statement
                                 S->buffer[w--] = prefix;
-                                j--;
+                                currentPlaceholder--;
                         } else {
                                 S->buffer[w--] = S->buffer[r];
                         }
@@ -120,7 +198,7 @@ static int _prepare(T S, char prefix) {
                 S->used = new_used;
                 S->buffer[S->used] = 0;
         }
-        return n;
+        return placeholderCount;
 }
 
 
