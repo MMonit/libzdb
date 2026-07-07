@@ -83,9 +83,12 @@ static inline int _unescape_bytea(const uchar_t *src, int len, uchar_t *dest) {
                         0, 10, 11, 12, 13, 14, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                         0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                 };
-                for (i = 0, j = 2; j < len; j++) {
-                        // Whitespace between hex pairs is allowed 🤔
-                        if (isxdigit(src[j])) {
+                for (i = 0, j = 2; j + 1 < len; j++) {
+                        // Whitespace between hex pairs is allowed 🤔. Decode only
+                        // well-formed pairs: getBlob() may be called on a non-bytea
+                        // text column whose value happens to start with "\x", and a
+                        // non-hex byte (e.g. UTF-8 >= 0x80) must not index hex[]
+                        if (isxdigit(src[j]) && isxdigit(src[j + 1])) {
                                 dest[i] = hex[src[j]] << 4;
                                 dest[i] |= hex[src[j + 1]];
                                 i++;
