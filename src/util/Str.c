@@ -106,7 +106,7 @@ bool Str_member(const char *s, const char **set) {
 char *Str_copy(char *dest, const char *src, int n) {
         if (src && dest && (n > 0)) {
                 char *t = dest;
-                while (*src && n--)
+                while (*src && --n) // reserve one slot for the '\0' => never write past dest[n-1]
                         *t++ = *src++;
                 *t = 0;
         } else if (dest)

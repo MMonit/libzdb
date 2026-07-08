@@ -137,13 +137,16 @@ bool Str_member(const char *s, const char **set);
 
 
 /**
- * Strcpy that copy only <code>n</code> char from the given
- * string. The destination string, <code>dest</code>, is NUL
- * terminated at length <code>n</code> or if <code>src</code> is
- * shorter than <code>n</code> at the length of <code>src</code>
+ * Copy <code>src</code> into <code>dest</code>, writing at most
+ * <code>n</code> bytes <em>including</em> the terminating NUL (i.e. at
+ * most <code>n - 1</code> characters are copied). The result is always
+ * NUL terminated when <code>n &gt; 0</code>. If <code>src</code> is shorter
+ * than <code>n - 1</code>, only <code>strlen(src)</code> characters are
+ * copied. If <code>n &lt;= 0</code> and <code>dest</code> is not NULL,
+ * <code>dest</code> is set to the empty string.
  * @param dest The destination buffer
  * @param src The string to copy to dest
- * @param n The number of bytes to copy
+ * @param n The size of the <code>dest</code> buffer, including the NUL terminator
  * @return A pointer to dest
  */
 char *Str_copy(char *dest, const char *src, int n);
