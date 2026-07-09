@@ -36,8 +36,9 @@
  * Implementation of the PreparedStatement/Delegate interface for postgresql.
  * All parameter values are sent as text except for blobs, which are sent in
  * binary format. libpq ignores paramLengths for text parameters (so it is set to
- * 0 for those); string values are copied into an owned, NUL-terminated buffer so
- * the caller-supplied length is honored and non-NUL-terminated buffers are safe.
+ * 0 for those); string values are copied into a NUL-terminated buffer (inline for
+ * short values, else an owned heap buffer) so the caller-supplied length is honored
+ * and non-NUL-terminated buffers are safe.
  *
  * @file
  */
@@ -47,7 +48,7 @@
 
 
 typedef struct param_t {
-        char s[65];
+        char s[65];     // scratch for number/timestamp text, reused for short (SSO) strings
 } *param_t;
 #define T PreparedStatementDelegate_T
 struct T {
@@ -60,7 +61,8 @@ struct T {
         char **paramValues;
         int *paramLengths;
         int *paramFormats;
-        char **sbuf;        // owned, length-exact copies of string parameters
+        char **sbuf;        // owned heap copies for strings too long for the inline params[].s
+        int *sbufcap;       // allocated capacity of each sbuf[i] (grow-only, never shrinks)
         Connection_T delegator;
 };
 extern const struct Rop_T postgresqlrops;
@@ -85,6 +87,7 @@ T PostgresqlPreparedStatement_new(Connection_T delegator, PGconn *db, char *stmt
                 P->paramFormats = CALLOC(P->parameterCount, sizeof(int));
                 P->params = CALLOC(P->parameterCount, sizeof(struct param_t));
                 P->sbuf = CALLOC(P->parameterCount, sizeof(char *));
+                P->sbufcap = CALLOC(P->parameterCount, sizeof(int));
         }
         return P;
 }
@@ -108,6 +111,7 @@ static void _free(T *P) {
                 for (int i = 0; i < (*P)->parameterCount; i++)
                         FREE((*P)->sbuf[i]);
                 FREE((*P)->sbuf);
+                FREE((*P)->sbufcap);
 	        FREE((*P)->paramValues);
 	        FREE((*P)->paramLengths);
 	        FREE((*P)->paramFormats);
@@ -120,23 +124,36 @@ static void _free(T *P) {
 static void _setString(T P, int parameterIndex, const char *x, int size) {
         assert(P);
         int i = checkAndSetParameterIndex(parameterIndex, P->parameterCount);
-        FREE(P->sbuf[i]); // release any copy from a previous bind on this index
         if (! x) {
-                P->paramValues[i] = NULL; // SQL NULL
+                P->paramValues[i] = NULL; // SQL NULL (sbuf[i] kept for reuse)
                 P->paramLengths[i] = 0;
                 P->paramFormats[i] = 0;
                 return;
         }
-        // libpq ignores paramLengths for text-format parameters and reads the value
-        // up to the NUL terminator. To honor the caller-supplied length (setSString)
-        // and avoid over-reading a non-NUL-terminated buffer, copy exactly 'size'
-        // bytes into an owned, NUL-terminated buffer. Text format (not binary) is
-        // kept so the server still parses text representations of typed columns
-        // (dates, numbers, ...) bound via setString().
-        P->sbuf[i] = ALLOC(size + 1);
-        memcpy(P->sbuf[i], x, size);
-        P->sbuf[i][size] = 0;
-        P->paramValues[i] = P->sbuf[i];
+        // libpq ignores paramLengths for text-format parameters and reads the value up
+        // to the NUL terminator, so we hand it a NUL-terminated copy of exactly 'size'
+        // bytes (honoring the caller length and never over-reading a non-NUL-terminated
+        // buffer, e.g. a C++ string_view). Short values reuse the inline params[i].s
+        // scratch (the same buffer the number setters use) to avoid the heap entirely;
+        // longer values use an owned buffer that is reused and grown on demand, so
+        // re-executing a cached statement does not reallocate per bind. Text format (not
+        // binary) is kept so the server parses text representations of typed columns.
+        char *buf;
+        if (size < (int)sizeof(P->params[i].s)) { // fits inline with room for the NUL
+                buf = P->params[i].s;
+        } else {
+                if (P->sbufcap[i] <= size) { // need size + 1 bytes; test avoids overflow
+                        if (P->sbuf[i])
+                                RESIZE(P->sbuf[i], size + 1);
+                        else
+                                P->sbuf[i] = ALLOC(size + 1);
+                        P->sbufcap[i] = size + 1;
+                }
+                buf = P->sbuf[i];
+        }
+        memcpy(buf, x, size);
+        buf[size] = 0;
+        P->paramValues[i] = buf;
         P->paramLengths[i] = 0;
         P->paramFormats[i] = 0;
 }
@@ -145,7 +162,7 @@ static void _setString(T P, int parameterIndex, const char *x, int size) {
 static void _setInt(T P, int parameterIndex, int x) {
         assert(P);
         int i = checkAndSetParameterIndex(parameterIndex, P->parameterCount);
-        snprintf(P->params[i].s, 64, "%d", x);
+        snprintf(P->params[i].s, sizeof(P->params[i].s), "%d", x);
         P->paramValues[i] =  P->params[i].s;
         P->paramLengths[i] = 0;
         P->paramFormats[i] = 0;
@@ -155,7 +172,7 @@ static void _setInt(T P, int parameterIndex, int x) {
 static void _setLLong(T P, int parameterIndex, long long x) {
         assert(P);
         int i = checkAndSetParameterIndex(parameterIndex, P->parameterCount);
-        snprintf(P->params[i].s, 64, "%lld", x);
+        snprintf(P->params[i].s, sizeof(P->params[i].s), "%lld", x);
         P->paramValues[i] =  P->params[i].s;
         P->paramLengths[i] = 0; 
         P->paramFormats[i] = 0;
@@ -168,7 +185,7 @@ static void _setDouble(T P, int parameterIndex, double x) {
         // %.17g preserves full IEEE-754 double precision on round-trip and uses
         // the shortest of fixed/scientific notation; %lf (fixed 6-decimal) loses
         // precision and truncates large magnitudes (e.g. 1e300 needs ~308 digits)
-        snprintf(P->params[i].s, 64, "%.17g", x);
+        snprintf(P->params[i].s, sizeof(P->params[i].s), "%.17g", x);
         P->paramValues[i] =  P->params[i].s;
         P->paramLengths[i] = 0;
         P->paramFormats[i] = 0;
