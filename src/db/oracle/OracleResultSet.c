@@ -91,10 +91,10 @@ struct T {
 /* ------------------------------------------------------- Private methods */
 
 
-/* Convenience macro for error messages */
+// Convenience macro for error messages
 #define ERR(R) Oracle_getError((R)->lastError, (R)->err, NULL, (R)->erb, sizeof((R)->erb))
 
-/* Macro to throw SQLException with Oracle error code and message in one OCIErrorGet call */
+// Macro to throw SQLException with Oracle error code and message in one OCIErrorGet call
 #define THROW_ORACLE_ERROR(R) do { \
         int _code; \
         const char *_msg = Oracle_getError((R)->lastError, (R)->err, &_code, (R)->erb, sizeof((R)->erb)); \
@@ -335,7 +335,7 @@ static const char *_getString(T R, int columnIndex) {
                 if (!_dateToString(R, i))
                         THROW(SQLException, "%s", ERR(R));
         } else if (R->columns[i].lob_loc) {
-                /* BLOB/CLOB columns should use ResultSet_getBlob() */
+                // BLOB/CLOB columns should use ResultSet_getBlob()
                 DEBUG("_getString: column %d is a LOB type, use getBlob() instead\n", columnIndex);
                 return NULL;
         }
@@ -351,26 +351,22 @@ static const void *_getBlob(T R, int columnIndex, int *size) {
         *size = 0;
         if (R->columns[i].isNull)
                 return NULL;
-        /*
-         * Non-LOB column (lob_loc is NULL): the value was already fetched into
-         * the OCIDefineByPos target buffer. Return it directly, same as _getString()
-         */
+        // Non-LOB column (lob_loc is NULL): the value was already fetched into
+        // the OCIDefineByPos target buffer. Return it directly, same as _getString()
         if (!R->columns[i].lob_loc) {
                 *size = R->columns[i].buffer ? (int)strlen(R->columns[i].buffer) : 0;
                 return R->columns[i].buffer;
         }
-        /*
-         * Reuse the existing buffer if possible. BLOB columns in a result set
-         * typically contain data of similar size (e.g., images, documents), so
-         * after processing a few rows, the buffer stabilizes at the high-water
-         * mark and subsequent reads avoid unnecessary alloc/free cycles. The
-         * buffer is freed when the ResultSet is closed. This follows the same
-         * pattern used in MysqlResultSet.c (_ensureCapacity).
-         */
+        // Reuse the existing buffer if possible. BLOB columns in a result set
+        // typically contain data of similar size (e.g., images, documents), so
+        // after processing a few rows, the buffer stabilizes at the high-water
+        // mark and subsequent reads avoid unnecessary alloc/free cycles. The
+        // buffer is freed when the ResultSet is closed. This follows the same
+        // pattern used in MysqlResultSet.c (_ensureCapacity).
         oraub8 read_chars = 0;
         oraub8 read_bytes = 0;
         oraub8 total_bytes = 0;
-        /* Ensure we have an initial buffer */
+        // Ensure we have an initial buffer
         if (!R->columns[i].buffer) {
                 R->columns[i].buffer = ALLOC(LOB_CHUNK_SIZE);
                 R->columns[i].capacity = LOB_CHUNK_SIZE;
@@ -379,7 +375,7 @@ static const void *_getBlob(T R, int columnIndex, int *size) {
         do {
                 read_bytes = 0;
                 read_chars = 0;
-                /* Ensure capacity for the next chunk */
+                // Ensure capacity for the next chunk
                 if (total_bytes + LOB_CHUNK_SIZE > R->columns[i].capacity) {
                         R->columns[i].capacity = total_bytes + LOB_CHUNK_SIZE;
                         R->columns[i].buffer = RESIZE(R->columns[i].buffer, R->columns[i].capacity);

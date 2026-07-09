@@ -97,7 +97,7 @@ static void testPrepared(ConnectionPool& pool) {
     // PreparedStatement_setTimestamp(). Verified on SQLite, where "SELECT ?"
     // echoes the bound value with its integer storage class intact (the bind
     // dispatch is backend-independent, so one backend suffices).
-    if (pool.getURL().protocol() == std::string_view("sqlite")) {
+    if (pool.getType() == CONNECTIONPOOL_SQLITE) {
         const long marker = 1234567890L; // a valid time_t on LP64
         ResultSet echo = con.executeQuery("SELECT ?;", marker);
         assert(echo.next());

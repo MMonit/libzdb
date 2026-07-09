@@ -178,7 +178,6 @@ static long _getColumnSize(T R, int columnIndex) {
 static void _setFetchSize(T R, int rows) {
         assert(R);
         assert(rows > 0);
-        // STMT_ATTR_PREFETCH_ROWS expects an unsigned long*
         unsigned long prefetchRows = (unsigned long)rows;
         if ((R->lastError = mysql_stmt_attr_set(R->stmt, STMT_ATTR_PREFETCH_ROWS, &prefetchRows)))
                 DEBUG("mysql_stmt_attr_set -- %s", mysql_stmt_error(R->stmt));
@@ -199,8 +198,7 @@ static bool _next(T R) {
         if ((R->maxRows > 0) && (R->currentRow >= R->maxRows)) {
                 R->stop = true;
 #if MYSQL_VERSION_ID >= 50002
-                /* Seems to need a cursor to work */
-                mysql_stmt_reset(R->stmt); 
+                mysql_stmt_reset(R->stmt);
 #else
                 while (mysql_stmt_fetch(R->stmt) == 0);
 #endif

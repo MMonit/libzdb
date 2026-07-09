@@ -249,13 +249,9 @@ static void _setQueryTimeout(T C, int ms) {
 }
 
 
-/*
- * CLIENT_MULTI_STATEMENTS is enabled, so a single mysql_query()/mysql_real_query()
- * may leave several result sets pending. Every one must be consumed or the next
- * command on this connection fails with CR_COMMANDS_OUT_OF_SYNC. Guarded by
- * mysql_more_results() so the common single-statement path -- and the
- * mysql_affected_rows()/mysql_insert_id() it exposes -- is left untouched.
- */
+// CLIENT_MULTI_STATEMENTS is enabled, so a single mysql_query()/mysql_real_query()
+// may leave several result sets pending. Every one must be consumed or the next
+// command on this connection fails with CR_COMMANDS_OUT_OF_SYNC.
 static void _drainResults(T C) {
         while (mysql_more_results(C->db)) {
                 if (mysql_next_result(C->db) != 0)

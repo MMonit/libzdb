@@ -79,9 +79,6 @@ static void _free(T *P) {
 }
 
 
-// Raise an exception if the last sqlite3_bind_* call failed. Every bind error
-// must be reported here: otherwise a swallowed failure (e.g. SQLITE_TOOBIG)
-// leaves the parameter unbound and the statement executes with silent data loss
 static void _throwOnBindError(T P) {
         if (P->lastError == SQLITE_OK)
                 return;

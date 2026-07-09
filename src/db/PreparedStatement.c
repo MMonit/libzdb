@@ -87,9 +87,6 @@ void PreparedStatement_free(T *P) {
 
 void PreparedStatement_setString(T P, int parameterIndex, const char *x) {
         size_t len = x ? strlen(x) : 0;
-        // The parameter length is an int; reject an over-long string rather than
-        // truncating strlen()'s size_t to a (possibly negative) int and silently
-        // binding a wrong or empty value.
         if (len > INT_MAX)
                 THROW(SQLException, "String parameter exceeds the maximum length of %d bytes", INT_MAX);
         PreparedStatement_setSString(P, parameterIndex, x, (int)len);

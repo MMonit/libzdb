@@ -204,18 +204,16 @@ static void _execute(T P) {
                 THROW_SQL(mysql_stmt_errno(P->stmt), "%s", mysql_stmt_error(P->stmt));
         }
         if (P->lastError == MYSQL_OK) {
-                /*
-                 * Capture affected rows BEFORE reset. We call mysql_stmt_reset()
-                 * to free server resources and ensure clean state for statement
-                 * reuse. However, MariaDB's libmariadb clears the internal
-                 * upsert_status on reset, causing mysql_stmt_affected_rows() to
-                 * return -1 after the reset call. MySQL's libmysqlclient does not
-                 * exhibit this behavior. By caching the value here, we ensure
-                 * consistent behavior across both client libraries.
-                 */
+                // Capture affected rows BEFORE reset. We call mysql_stmt_reset()
+                // to free server resources and ensure clean state for statement
+                // reuse. However, MariaDB's libmariadb clears the internal
+                // upsert_status on reset, causing mysql_stmt_affected_rows() to
+                // return -1 after the reset call. MySQL's libmysqlclient does not
+                // exhibit this behavior. By caching the value here, we ensure
+                // consistent behavior across both client libraries.
                 P->affectedRows = (long long)mysql_stmt_affected_rows(P->stmt);
 
-                /* Discard prepared param data in client/server */
+                // Discard prepared param data in client/server
                 P->lastError = mysql_stmt_reset(P->stmt);
         }
 }

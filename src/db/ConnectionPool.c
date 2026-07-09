@@ -30,6 +30,7 @@
 
 #include "URL.h"
 #include "Thread.h"
+#include "MemoryException.h"
 #include "system/Time.h"
 #include "Vector.h"
 #include "ResultSet.h"
@@ -117,15 +118,12 @@ static bool _fillPool(T P, char error[static STRLEN]) {
                 if (! con) {
                         bool rv = false;
                         if (i > 0) {
-                                // Some connection were opened => partial error (can be ignored, more connections will be opened on demand)
-                                DEBUG("The pool has been filled with initial connections only partially -- %s\n", STR_DEF(connectionError) ? connectionError : "unknown error");
+                                DEBUG("Pool partially filled with initial connections -- %s\n", STR_DEF(connectionError) ? connectionError : "unknown error");
                                 rv = true;
                         } else {
-                                // Report the failure to ConnectionPool_start()
                                 snprintf(error, STRLEN, "%s", STR_DEF(connectionError) ? connectionError : "unknown error");
                         }
                         FREE(connectionError);
-                        // Stop the pool initialization on first error
                         return rv;
                 }
                 Vector_push(P->pool, con);
@@ -165,13 +163,16 @@ static inline Connection_T _createConnection(T P, char error[static STRLEN]) {
         char *connectionError = NULL;
         Connection_T con = Connection_new(P, &connectionError);
         Mutex_lock(P->mutex);
-        // Vector_push() can throw on out-of-memory => handle exceptions
         TRY
         {
                 if (con) {
                         Connection_setAvailable(con, false);
                         Vector_push(P->pool, con);
                 }
+        }
+        CATCH(MemoryException)
+        {
+                Connection_free(&con);
         }
         FINALLY
         {
@@ -206,13 +207,11 @@ static Connection_T _getConnection(T P, char error[static STRLEN]) {
                 }
                 END_LOCK;
                 if (!con) {
-                        // No more available connections, break to try creation
                         break;
                 }
                 if (Connection_ping(con)) {
                         return con;
                 } else {
-                        // Connection failed ping test, remove it and continue
                         LOCK(P->mutex)
                         {
                                 Vector_remove(P->pool, Vector_indexOf(P->pool, con));
@@ -405,8 +404,6 @@ void ConnectionPool_start(T P) {
         assert(P);
         bool filled = false;
         char error[STRLEN] = {};
-        // Handle exceptions: Thread_create() failing, or an out-of-memory in _fillPool()
-        // must still unlock the mutex
         Mutex_lock(P->mutex);
         TRY
         {
@@ -443,10 +440,6 @@ void ConnectionPool_stop(T P) {
                         _drainPool(P);
                         P->filled = false;
                 }
-                // Join the reaper if it was actually started, regardless of the current
-                // doSweep value: setReaper(0) can disable doSweep after start() created
-                // the thread, and it must still be joined before free() destroys the
-                // mutex/cond it waits on.
                 stopSweep = P->reaperStarted;
                 P->reaperStarted = false;
         }

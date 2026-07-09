@@ -255,12 +255,6 @@ namespace zdb {
         template<typename T>
         concept Blobable = std::ranges::contiguous_range<T> && std::same_as<std::ranges::range_value_t<T>, std::byte>;
 
-        // A SQL timestamp is bound from a std::chrono::system_clock::time_point.
-        // time_t is intentionally NOT used for this: it is only a typedef for a
-        // built-in integer type (long on 64-bit systems, long long on some 32-bit
-        // systems), so binding it as a timestamp would silently misinterpret every
-        // plain integer of that type. Bind timestamps as a time_point instead;
-        // time_t binds as an ordinary integer.
         template<typename T>
         concept TimePoint = std::same_as<T, std::chrono::system_clock::time_point>;
         // @endcond
@@ -1125,12 +1119,17 @@ namespace zdb {
      * values are set by reference and _MUST_ remain valid until PreparedStatement::execute()
      * has been called.
      *
-     * @warning PreparedStatement objects are internally managed by the Connection that
-     * created them and are not copyable or movable. Always ensure that the originating
-     * Connection object remains valid for the entire duration of the PreparedStatement's
-     * use. Basically, keep the Connection and PreparedStatement objects in the same scope.
-     * Do not attempt to use PreparedStatement objects (including through references or
-     * pointers) after their Connection has been closed and returned to the pool.
+     * @warning
+     * - PreparedStatement objects are internally managed by the Connection that
+     *   created them and are not copyable or movable. Always ensure that the originating
+     *   Connection object remains valid for the entire duration of the PreparedStatement's
+     *   use. Basically, keep the Connection and PreparedStatement objects in the same scope.
+     *   Do not attempt to use PreparedStatement objects (including through references or
+     *   pointers) after their Connection has been closed and returned to the pool.
+     * - Maximum 99 '?' parameter placeholders are supported.
+     * - The '?' placeholder is translated into '$\<number\>' (PostgreSQL format)
+     *   or ':\<number\>' (Oracle format). If '?' is present in a quoted literal, identifier,
+     *   line-comment or block-comment, the behaviour is undefined.
      */
     class PreparedStatement : private noncopyable {
     public:
@@ -1185,16 +1184,11 @@ namespace zdb {
                 if constexpr (std::is_floating_point_v<U>) {
                     except_wrapper(PreparedStatement_setDouble(t_, parameterIndex, static_cast<double>(x)));
                 } else if constexpr (std::is_signed_v<U>) {
-                    // Signed integers dispatch by width: int fits setInt, wider uses setLLong.
                     if constexpr (sizeof(U) <= sizeof(int))
                         except_wrapper(PreparedStatement_setInt(t_, parameterIndex, static_cast<int>(x)));
                     else
                         except_wrapper(PreparedStatement_setLLong(t_, parameterIndex, static_cast<long long>(x)));
                 } else {
-                    // Unsigned integers are promoted to long long so that values above
-                    // INT_MAX do not wrap negative. A 64-bit unsigned value can exceed
-                    // LLONG_MAX, which long long cannot represent, so reject it rather
-                    // than silently wrapping.
                     if constexpr (sizeof(U) >= sizeof(long long)) {
                         if (x > static_cast<U>(std::numeric_limits<long long>::max()))
                             throw sql_exception("Unsigned integer value too large to bind (exceeds LLONG_MAX)");

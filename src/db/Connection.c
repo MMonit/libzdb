@@ -248,7 +248,6 @@ void Connection_clear(T C) {
         if (C->resultSet)
                 ResultSet_free(&C->resultSet);
         _freePrepared(C);
-        // Set properties back to default values
         C->maxRows = 0;
         if (C->queryTimeout != 0)
                 Connection_setQueryTimeout(C, 0);

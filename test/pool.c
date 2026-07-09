@@ -166,9 +166,8 @@ static void testPool(const char *testURL) {
                 // Assert that the last insert statement added one row
                 assert(Connection_rowsChanged(con) == 1);
                 /* Assert that last row id works for MySQL and SQLite. Neither Oracle nor PostgreSQL
-                 support last row id directly. The way to do this in PostgreSQL is to return the id
-                 on insert and in libzdb execute the statement using executeQuery */
-                if (IS(URL_getProtocol(url), "sqlite") || IS(URL_getProtocol(url), "mysql"))
+                 support last row id directly. See the documentation for Connection_lastRowId */
+                if ((ConnectionPool_getType(pool) == CONNECTIONPOOL_SQLITE) || (ConnectionPool_getType(pool) == CONNECTIONPOOL_MYSQL))
                         assert(Connection_lastRowId(con) == 12);
                 Connection_commit(con);
                 printf("\tResult: table zild_t successfully created\n");
@@ -367,7 +366,7 @@ static void testPool(const char *testURL) {
                 // return the fetched value without corrupting the OCIDefineByPos
                 // buffer (previously it RESIZE/FREE'd the define buffer and called
                 // OCILobRead2() with a NULL locator -> heap corruption/use-after-free).
-                if (Str_startsWith(testURL, "oracle")) {
+                if (ConnectionPool_getType(pool) == CONNECTIONPOOL_ORACLE) {
                         printf("\tResult: check getBlob on non-LOB column..");
                         int bsize = 0;
                         rset = Connection_executeQuery(con, "select name from zild_t where name = 'Leela';");
@@ -387,7 +386,7 @@ static void testPool(const char *testURL) {
                 // macOS ships SQLITE_MAX_LENGTH = 2147483645 (INT_MAX - 2), where a
                 // smaller size passes bind validation and sqlite3_step() then copies
                 // `size` bytes from the small buffer (crash). INT_MAX exceeds both.
-                if (Str_startsWith(testURL, "sqlite")) {
+                if (ConnectionPool_getType(pool) == CONNECTIONPOOL_SQLITE) {
                         printf("\tResult: check bind error is not swallowed..");
                         Connection_execute(con, "drop table if exists toobig_t;");
                         Connection_execute(con, "create table toobig_t(x text);");
@@ -412,7 +411,7 @@ static void testPool(const char *testURL) {
                 // Regression (SQLite): empty or comment-only SQL makes sqlite3_prepare_v2
                 // return SQLITE_OK with a NULL statement. This must raise a clean
                 // SQLException, not an AssertException (or a NULL-deref in NDEBUG builds).
-                if (Str_startsWith(testURL, "sqlite")) {
+                if (ConnectionPool_getType(pool) == CONNECTIONPOOL_SQLITE) {
                         printf("\tResult: check empty/comment-only SQL raises SQLException..");
                         volatile int threwQ = 0, threwP = 0;
                         TRY { Connection_executeQuery(con, "-- just a comment"); }
@@ -427,7 +426,7 @@ static void testPool(const char *testURL) {
                 // statement exactly once. (The BUSY/LOCKED retry now re-runs only the
                 // failing statement, not the whole string, so already-committed
                 // statements are never repeated.)
-                if (Str_startsWith(testURL, "sqlite")) {
+                if (ConnectionPool_getType(pool) == CONNECTIONPOOL_SQLITE) {
                         printf("\tResult: check multi-statement execute..");
                         Connection_execute(con, "drop table if exists multi_t;");
                         Connection_execute(con, "create table multi_t(n int);");
@@ -443,7 +442,7 @@ static void testPool(const char *testURL) {
                 // lastError = SQLITE_DONE, so reusing the same (documented reusable)
                 // prepared statement with PreparedStatement_executeQuery() threw a
                 // spurious SQLException whose message was "not an error".
-                if (Str_startsWith(testURL, "sqlite")) {
+                if (ConnectionPool_getType(pool) == CONNECTIONPOOL_SQLITE) {
                         printf("\tResult: check prepared statement execute/executeQuery reuse..");
                         PreparedStatement_T rp = Connection_prepareStatement(con, "update zild_t set percent = percent where id = 1;");
                         PreparedStatement_execute(rp);
@@ -455,7 +454,7 @@ static void testPool(const char *testURL) {
                 // Regression (SQLite): calling ResultSet_next() again after it returned
                 // false re-ran the query from the first row (sqlite3_step() auto-resets
                 // a done statement since SQLite 3.7). It must keep returning false.
-                if (Str_startsWith(testURL, "sqlite")) {
+                if (ConnectionPool_getType(pool) == CONNECTIONPOOL_SQLITE) {
                         printf("\tResult: check next() after the last row keeps returning false..");
                         rset = Connection_executeQuery(con, "select id from zild_t;");
                         int nrows = 0;
@@ -473,7 +472,7 @@ static void testPool(const char *testURL) {
                 // call would re-decode the already-decoded bytes and mangle the
                 // value: these raw bytes 0x5C 0x78 0x30 0x30 decode to the text
                 // "\x00", which a re-decode would parse as a fresh hex-format bytea.
-                if (Str_startsWith(testURL, "postgres")) {
+                if (ConnectionPool_getType(pool) == CONNECTIONPOOL_POSTGRESQL) {
                         printf("\tResult: check repeated bytea getBlob returns the same bytes..");
                         Connection_execute(con, "drop table if exists bytea_t;");
                         Connection_execute(con, "create table bytea_t(x bytea);");
@@ -495,8 +494,8 @@ static void testPool(const char *testURL) {
                 // Regression (PostgreSQL): setSString() must honor the caller-supplied
                 // length. libpq ignores paramLengths for text-format params and reads to
                 // the NUL, so before the fix the whole string was sent; the value is now
-                // bound in binary format with the given length.
-                if (Str_startsWith(testURL, "postgres")) {
+                // copied into an owned, NUL-terminated buffer of exactly 'size' bytes.
+                if (ConnectionPool_getType(pool) == CONNECTIONPOOL_POSTGRESQL) {
                         printf("\tResult: check setSString honors length..");
                         Connection_execute(con, "drop table if exists sstr_t;");
                         Connection_execute(con, "create table sstr_t(x varchar(64));");
@@ -548,7 +547,8 @@ static void testPool(const char *testURL) {
                 printf("success\n");
                 
                 // Test prefetch unless database is SQLite or Postgres for which prefetch is n/a
-                if (Str_startsWith(testURL, "mysql") || Str_startsWith(testURL, "oracle")) {
+                if ((ConnectionPool_getType(pool) == CONNECTIONPOOL_MYSQL)
+                    || (ConnectionPool_getType(pool) == CONNECTIONPOOL_ORACLE)) {
                         printf("\tResult: check fetch-size..");
                         assert(Connection_getFetchSize(con) == SQL_DEFAULT_PREFETCH_ROWS);
                         Connection_setFetchSize(con, 50);
@@ -572,7 +572,7 @@ static void testPool(const char *testURL) {
                 // level sends "SET TRANSACTION ...; START TRANSACTION;" as two statements.
                 // With CLIENT_MULTI_STATEMENTS enabled, both results must be drained or the
                 // next command on the connection fails with CR_COMMANDS_OUT_OF_SYNC.
-                if (Str_startsWith(testURL, "mysql")) {
+                if (ConnectionPool_getType(pool) == CONNECTIONPOOL_MYSQL) {
                         printf("\tResult: check multi-statement transaction is drained..");
                         volatile int ok = 0;
                         TRY {
@@ -592,7 +592,8 @@ static void testPool(const char *testURL) {
                 // Regression (MySQL, Oracle): a non-NULL zero-length blob must be stored
                 // as an empty blob, not SQL NULL (consistent with setString() and
                 // PostgreSQL).
-                if (Str_startsWith(testURL, "mysql") || Str_startsWith(testURL, "oracle")) {
+                if ((ConnectionPool_getType(pool) == CONNECTIONPOOL_MYSQL)
+                    || (ConnectionPool_getType(pool) == CONNECTIONPOOL_ORACLE)) {
                         printf("\tResult: check empty blob is not stored as NULL..");
                         // Oracle has no DROP TABLE IF EXISTS: ignore "table does not exist"
                         TRY

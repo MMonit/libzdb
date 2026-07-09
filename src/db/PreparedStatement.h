@@ -124,6 +124,12 @@
  * and blob values are set by reference and MUST remain valid until either
  * PreparedStatement_execute() or PreparedStatement_executeQuery() is called.
  *
+ * @warning
+ * - Maximum 99 '?' parameter placeholders are supported.
+ * - The '?' placeholder is translated into '$\<number\>' (PostgreSQL format)
+ *   or ':\<number\>' (Oracle format). If '?' is present in a quoted literal, identifier,
+ *   line-comment or block-comment, the behaviour is undefined.
+ *
  * @see Connection.h ResultSet.h SQLException.h
  * @file
  */

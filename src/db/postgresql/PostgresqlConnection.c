@@ -92,12 +92,10 @@ extern const struct Pop_T postgresqlpops;
 /* ------------------------------------------------------- Private methods */
 
 
-/*
- * Append a libpq conninfo "key='value' " pair, escaping the ' and \ characters
- * that are special inside a single-quoted value. Without this a value containing
- * a quote (e.g. a password like ab'cd) would break the connection string, and a
- * crafted value (e.g. x' host='evil) could inject arbitrary conninfo parameters.
- */
+// Append a libpq conninfo "key='value' " pair, escaping the ' and \ characters
+// that are special inside a single-quoted value. Without this a value containing
+// a quote (e.g. a password like ab'cd) would break the connection string, and a
+// crafted value (e.g. x' host='evil) could inject arbitrary conninfo parameters.
 static void _appendConnInfo(StringBuffer_T sb, const char *key, const char *value) {
         StringBuffer_append(sb, "%s='", key);
         for (const char *p = value; *p; p++) {
@@ -266,9 +264,6 @@ static long long _lastRowId(T C) {
 
 static long long _rowsChanged(T C) {
         assert(C);
-        // PQcmdTuples() returns the empty string, never NULL, for commands
-        // without a tuple count (e.g. CREATE TABLE, SET), and Str_parseLLong
-        // would throw on it: return 0 like the other database drivers
         char *changes = PQcmdTuples(C->res);
         return STR_DEF(changes) ? Str_parseLLong(changes) : 0;
 }

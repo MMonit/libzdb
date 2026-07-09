@@ -5,157 +5,80 @@
 Version 3.6.0
 -------------
 
-* Fixed: hardened size arithmetic against integer overflow (only reachable with
-  ~2 GB inputs). StringBuffer growth (used/length are int) and Vector growth
-  (capacity computed as round(1.618 * length) and stored in an int) could overflow
-  to a negative value and pass a garbage size to the reallocator; they now reject an
-  oversized buffer with an exception. PreparedStatement_setString() truncated
-  strlen()'s size_t to an int, silently binding a wrong or empty value for a string
-  larger than INT_MAX; it now raises an SQLException instead.
-
-* Fixed: When Vector or StringBuffer grow operation failed due to out-of-memory,
-  (e.g. StringBuffer_append), the length was incorrectly set to the planned capacity.
-
-* Fixed: ConnectionPool: a throw inside the pool mutex's critical section leaked the
-  mutex and permanently deadlocked the pool. ConnectionPool_start() and
-  _createConnection() used LOCK/END_LOCK, whose unlock is skipped when an exception
-  longjmps out of the block, e.g. Thread_create() failing to start the reaper thread
-  (EAGAIN under thread/fd pressure) or an out-of-memory while filling the pool.
-
-* Fixed: SQLite: preparing empty or comment-only SQL (e.g. Connection_executeQuery()
-  or Connection_prepareStatement() with "-- comment") made sqlite3_prepare_v2()
-  return SQLITE_OK with a NULL statement, which triggered an AssertException (or a
-  NULL dereference in NDEBUG builds). It now raises a clean SQLException.
-
-* Fixed: SQLite: Connection_execute() with a multi-statement string retried the
-  whole string on SQLITE_BUSY/SQLITE_LOCKED, so if a later statement was busy the
-  earlier statements (already committed as their own autocommit transactions),
-  were re-run, e.g. duplicating an INSERT. Each statement is now prepared and
-  stepped separately, so only the busy statement is retried.
-
-* Fixed: MySQL and Oracle: PreparedStatement_setBlob() with a non-NULL, zero-length value
-  bound it as SQL NULL (it keyed NULL-ness off size == 0). A zero-length blob is
-  now stored as an empty blob, consistent with PreparedStatement_setString().
-  Only a NULL pointer binds SQL NULL now.
-
-* Fixed: PostgreSQL: PreparedStatement_setSString() ignored the caller-supplied
-  length. libpq ignores paramLengths for text-format parameters and reads the
-  value up to the NUL terminator, so binding a length-delimited substring sent
-  the whole string, and a non-NUL-terminated buffer was over-read.
-
-* Fixed: PostgreSQL: ResultSet_getBlob() decoded the bytea value by unescaping
-  the shared PGresult buffer in place. A second getBlob() on the same cell then
-  re-decoded already-decoded bytes (returning corrupt data and a wrong size), and
-  ResultSet_getString() on that column returned the mutated binary. getBlob() now
-  decodes into an owned per-column buffer and no longer mutates the result. NOTE:
-  as a consequence, getString() on a bytea column now consistently returns the
-  escaped text representation (e.g. "\x...."); use getBlob() for the raw bytes.
-
-* Fixed: ConnectionPool memory leaks on error:
-  - _createConnection() is called concurrently from ConnectionPool_getConnection(),
-    and passed the pool's P->error to Connection_new() outside the lock, so two threads
-    failing to create a connection at once raced, overwriting and leaking each other's
-    message and racing the subsequent read/free.
-  - Repeated failed ConnectionPool_start() leaked the previous error message.
-
-* Fixed: ConnectionPool_size() read the pool vector without holding the mutex, while
-  other threads may add/remove connections.
-
-* Fixed: ConnectionPool: calling ConnectionPool_setReaper(pool, 0) after
-  ConnectionPool_start() did not stop the already-running reaper thread, and
-  ConnectionPool_stop() then decided whether to join it from the now-cleared
-  doSweep flag, so the reaper was left running while ConnectionPool_free()
-  destroyed the mutex and condition variable it was waiting on, crashing the
-  process. The pool now tracks whether the reaper was actually started and
-  always joins it on stop.
-
-* Fixed: MySQL: Connection_beginTransactionType() with a non-default isolation
-  level sends "SET TRANSACTION ...; START TRANSACTION;" as two statements, but the
-  second result was never drained. Since CLIENT_MULTI_STATEMENTS is enabled, this
-  left the connection out of sync and the next command failed with
-  CR_COMMANDS_OUT_OF_SYNC. All pending results of a multi-statement query (also
-  for Connection_execute() with ';'-separated statements) are now consumed.
-
-* Fixed: Connection_commit() cleared the in-transaction flag before calling the
-  underlying database commit. If the commit failed and threw an exception, the
-  connection was left marked as idle, so closing it (or returning it to the pool)
-  skipped the rollback and the connection could be handed out again with an
-  uncommitted or aborted transaction still open. The flag is now cleared only
-  after a successful commit.
-
-* Fixed: Time_toDateTime()/Time_toTimestamp(): one-byte out-of-bounds
-  read when parsing a date string ending in a bare hour-only timezone
-  offset such as "...+05" or "...-08".
-
-* Fixed: SQLite: ResultSet_getDateTime() threw an exception on a NULL
-  column value. It now returns a zeroed date, consistent with
-  ResultSet_getTimestamp().
-
-* Fixed: ResultSet_getColumnName() bounds checks were off-by-one across
-  all database adapters (MySQL, SQLite, PostgreSQL, Oracle), allowing an
-  out-of-range column index to read one element past the column array.
-  On MySQL and Oracle this could crash; it now consistently returns NULL.
-
-* Fixed: PostgreSQL: PreparedStatement_setDouble() formatted the value with
-  "%lf" (fixed 6-decimal notation), losing precision and corrupting large or
-  small magnitudes, e.g. 1e-10 became 0 and 1e300 was truncated to ~1e62.
-  It now uses "%.17g", which round-trips an IEEE-754 double exactly.
-
-* Fixed: MySQL: ResultSet_setFetchSize() passed the prefetch count to
-  mysql_stmt_attr_set(STMT_ATTR_PREFETCH_ROWS) as an int*, but libmysqlclient
-  reads an unsigned long, on 64-bit platforms this read 8 bytes from a 4-byte
-  variable, so the adjacent stack bytes leaked into the prefetch count (a garbage
-  value). The count is now passed as an unsigned long.
-
+* Fixed: SQLite: Connection_execute() with a multi-statement string
+  retried the whole string on SQLITE_BUSY/SQLITE_LOCKED, so if a later
+  statement was busy the earlier statements (already committed as their
+  own autocommit transactions), were re-run, e.g. duplicating an
+  INSERT. Each statement is now prepared and stepped separately, so
+  only the busy statement is retried.
+* Fixed: MySQL and Oracle: PreparedStatement_setBlob() with a non-NULL,
+  zero-length value bound it as SQL NULL (it keyed NULL-ness off size
+  == 0). A zero-length blob is now stored as an empty blob, consistent
+  with PreparedStatement_setString(). Only a NULL pointer binds SQL
+  NULL now.
+* Fixed: PostgreSQL: ResultSet_getBlob() decoded the bytea value by
+  unescaping the shared PGresult buffer in place. A second getBlob() on
+  the same cell then re-decoded already-decoded bytes (returning
+  corrupt data and a wrong size), and ResultSet_getString() on that
+  column returned the mutated binary. getBlob() now decodes into an
+  owned per-column buffer and no longer mutates the result. NOTE: as a
+  consequence, getString() on a bytea column now consistently returns
+  the escaped text representation (e.g. "\x...."); use getBlob() for
+  the raw bytes.
+* Fixed: MySQL: Connection_beginTransactionType() with a non-default
+  isolation level sends "SET TRANSACTION ...; START TRANSACTION;" as
+  two statements, but the second result was never drained. Since
+  CLIENT_MULTI_STATEMENTS is enabled, this left the connection out of
+  sync and the next command failed with CR_COMMANDS_OUT_OF_SYNC. All
+  pending results of a multi-statement query (also for
+  Connection_execute() with ';'-separated statements) are now consumed.
+* Fixed: Connection_commit() cleared the in-transaction flag before
+  calling the underlying database commit. If the commit failed and
+  threw an exception, the connection was left marked as idle, so
+  closing it (or returning it to the pool) skipped the rollback and the
+  connection could be handed out again with an uncommitted or aborted
+  transaction still open. The flag is now cleared only after a
+  successful commit.
+* Fixed: PostgreSQL: PreparedStatement_setDouble() formatted the value
+  with "%lf" (fixed 6-decimal notation), losing precision and
+  corrupting large or small magnitudes, e.g. 1e-10 became 0 and 1e300
+  was truncated to ~1e62. It now uses "%.17g", which round-trips an
+  IEEE-754 double exactly.
 * Fixed: SQLite: PreparedStatement setters only raised an exception on
-  SQLITE_RANGE; any other bind failure (e.g. SQLITE_TOOBIG for a value larger
-  than SQLITE_LIMIT_LENGTH) was silently swallowed, and PreparedStatement_execute()
-  then ran the statement with the parameter left unbound, silently storing NULL.
-  A failed bind now raises an SQLException.
-
-* Fixed: Oracle: ResultSet_getBlob() on a non-LOB column corrupted the
-  fetch buffer (it resized/freed the OCIDefineByPos target and called
-  OCILobRead2() with a NULL locator), which could cause heap corruption
-  or a use-after-free on the next row fetch. Non-LOB columns now return
-  their already-fetched value directly.
-
-* Fixed: Oracle: date/timestamp columns were formatted with "IYYY" (the ISO
-  week-numbering year) instead of "YYYY" (the calendar year), so a value near
-  a year boundary was returned with the wrong year, e.g. the date 2024-12-30
-  (ISO week 1 of 2025) came back as 2025-12-30.
-
-* Fixed: Oracle: ResultSet_getString() on a date/timestamp column used '.' as the
-  time separator ("YYYY-MM-DD HH.MI.SS"); it now uses ':' to match libzdb's
-  canonical "YYYY-MM-DD HH:MM:SS" format.
-
-* Fixed: PostgreSQL: connection URL values (user, password, host, dbname, SSL
-  paths, application-name) were interpolated into the libpq conninfo string
-  without escaping. A value containing a single quote or backslash, e.g. a
-  password like ab'cd, produced a malformed connection string, and a crafted
-  value could inject arbitrary conninfo parameters. Such characters are now
-  escaped.
-
-* Fixed: URL_new()/URL_create() aborted the process on an invalid port value.
-  The parser threw a NumberFormatException when the port was outside 1-65535
-  range (e.g.  "mysql://host:99999999999999999999/db"); with no exception handler
-  installed this unwound to an empty stack and aborted the program. An invalid
-  port now makes URL parsing return NULL, like any other invalid URL.
-
-* Fixed: C++, PreparedStatement::bind()/bindValues() narrowed integer values by
-  size only, ignoring signedness: an unsigned value above INT_MAX (e.g. bind(i,
-  3000000000u)) was cast to int and wrapped to a negative number. Unsigned values
-  are now promoted to long long; a 64-bit unsigned value that exceeds LLONG_MAX
-  cannot be represented and now throws sql_exception instead of wrapping.
-
+  SQLITE_RANGE; any other bind failure (e.g. SQLITE_TOOBIG for a value
+  larger than SQLITE_LIMIT_LENGTH) was silently swallowed, and
+  PreparedStatement_execute() then ran the statement with the parameter
+  left unbound, silently storing NULL. A failed bind now raises an
+  SQLException.
+* Fixed: Oracle: date/timestamp columns were formatted with "IYYY" (the
+  ISO week-numbering year) instead of "YYYY" (the calendar year), so a
+  value near a year boundary was returned with the wrong year, e.g. the
+  date 2024-12-30 (ISO week 1 of 2025) came back as 2025-12-30.
+* Fixed: Oracle: ResultSet_getString() on a date/timestamp column used
+  '.' as the time separator ("YYYY-MM-DD HH.MI.SS"); it now uses ':' to
+  match libzdb's canonical "YYYY-MM-DD HH:MM:SS" format.
+* Fixed: PostgreSQL: connection URL values (user, password, host,
+  dbname, SSL paths, application-name) were interpolated into the libpq
+  conninfo string without escaping. A value containing a single quote
+  or backslash, e.g. a password like ab'cd, produced a malformed
+  connection string, and a crafted value could inject arbitrary
+  conninfo parameters. Such characters are now escaped.
+* Fixed: C++, PreparedStatement::bind()/bindValues() narrowed integer
+  values by size only, ignoring signedness: an unsigned value above
+  INT_MAX (e.g. bind(i, 3000000000u)) was cast to int and wrapped to a
+  negative number. Unsigned values are now promoted to long long; a
+  64-bit unsigned value that exceeds LLONG_MAX cannot be represented
+  and now throws sql_exception instead of wrapping.
 * Fixed: C++, PreparedStatement::bind()/bindValues() and the Connection
   execute()/executeQuery() variadic overloads silently bound every long
-  value as a SQL timestamp. Because time_t is only a typedef for a built-in
-  integer type (long on 64-bit systems, long long on some 32-bit systems),
-  a plain integer such as a row id was stored as a DATETIME. Integral values
-  (including time_t) now bind as integers; bind a
-  std::chrono::system_clock::time_point to store a
-  timestamp. NOTE: C++ code that relied on binding a time_t as a timestamp
-  must now pass a std::chrono::system_clock::time_point instead.
+  value as a SQL timestamp. Because time_t is only a typedef for a
+  built-in integer type, a plain integer such as a row id was stored as
+  a DATETIME. Integral values (including time_t) now bind as integers;
+  bind a std::chrono::system_clock::time_point to store a timestamp.
+  NOTE: C++ code that relied on binding a time_t as a timestamp must
+  now pass a std::chrono::system_clock::time_point instead.
+* Fixed: additional internal hardening, none of which affect documented
+  behavior for correct usage.
 
 Version 3.5.0
 -------------

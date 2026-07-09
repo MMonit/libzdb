@@ -90,7 +90,6 @@ static int _prepare(T S, char prefix) {
                 THROW(SQLException, "Max 99 parameters are allowed in a prepared statement. Found %d parameters in statement", n);
         else if (n) {
                 int extra = (n <= 9) ? n : (2 * n - 9);
-                // used + extra + 1 bytes are needed; reject content that would not fit rather than overflowing to a negative size
                 if (extra >= INT_MAX - S->used)
                         THROW(AssertException, "StringBuffer: content exceeds the maximum size of %d bytes", INT_MAX);
                 int new_used = S->used + extra;

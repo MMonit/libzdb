@@ -131,7 +131,7 @@ static void _setString(T P, int parameterIndex, const char *x, int size) {
                 return;
         }
         // libpq ignores paramLengths for text-format parameters and reads the value up
-        // to the NUL terminator, so we hand it a NUL-terminated copy of exactly 'size'
+        // to the NUL terminator 🤬, so we hand it a NUL-terminated copy of exactly 'size'
         // bytes (honoring the caller length and never over-reading a non-NUL-terminated
         // buffer, e.g. a C++ string_view). Short values reuse the inline params[i].s
         // scratch (the same buffer the number setters use) to avoid the heap entirely;
@@ -183,8 +183,7 @@ static void _setDouble(T P, int parameterIndex, double x) {
         assert(P);
         int i = checkAndSetParameterIndex(parameterIndex, P->parameterCount);
         // %.17g preserves full IEEE-754 double precision on round-trip and uses
-        // the shortest of fixed/scientific notation; %lf (fixed 6-decimal) loses
-        // precision and truncates large magnitudes (e.g. 1e300 needs ~308 digits)
+        // the shortest of fixed/scientific notation; 
         snprintf(P->params[i].s, sizeof(P->params[i].s), "%.17g", x);
         P->paramValues[i] =  P->params[i].s;
         P->paramLengths[i] = 0;
