@@ -112,7 +112,7 @@ static void testPrepared(ConnectionPool& pool) {
         // A 64-bit unsigned value above LLONG_MAX cannot be represented and is rejected
         bool threw = false;
         try {
-            con.executeQuery("SELECT ?;", static_cast<std::uint64_t>(LLONG_MAX) + 1u);
+            (void)con.executeQuery("SELECT ?;", static_cast<std::uint64_t>(LLONG_MAX) + 1u);
         } catch (const sql_exception&) {
             threw = true;
         }
