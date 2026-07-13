@@ -25,14 +25,9 @@
 
 #ifndef ASSERTION_INCLUDED
 #define ASSERTION_INCLUDED
-
-#undef assert
-#ifdef NDEBUG
-#define assert(e) ((void)0)
-#else
 #include <AssertException.h>
 extern void assert(int e);
+
 #define assert(e) ((void)((e)||(Exception_throw(&(AssertException), 0, __func__, __FILE__, __LINE__, #e),0)))
-#endif
 
 #endif
