@@ -5,6 +5,9 @@
 Version 3.6.0
 -------------
 
+This is libzdb's Snow Leopard release: no new features, many fixes and
+refinements under the hood.
+
 * Fixed: SQLite: Connection_execute() with a multi-statement string
   retried the whole string on SQLITE_BUSY/SQLITE_LOCKED, so if a later
   statement was busy the earlier statements (already committed as their
@@ -16,15 +19,16 @@ Version 3.6.0
   == 0). A zero-length blob is now stored as an empty blob, consistent
   with PreparedStatement_setString(). Only a NULL pointer binds SQL
   NULL now.
-* Fixed: PostgreSQL: ResultSet_getBlob() decoded the bytea value by
-  unescaping the shared PGresult buffer in place. A second getBlob() on
-  the same cell then re-decoded already-decoded bytes (returning
-  corrupt data and a wrong size), and ResultSet_getString() on that
-  column returned the mutated binary. getBlob() now decodes into an
-  owned per-column buffer and no longer mutates the result. NOTE: as a
-  consequence, getString() on a bytea column now consistently returns
-  the escaped text representation (e.g. "\x...."); use getBlob() for
-  the raw bytes.
+* Fixed: PostgreSQL: ResultSet_getBlob() unescaped the bytea value in
+  place in the shared PGresult buffer but did not record that the cell
+  had been decoded. A second getBlob() on the same cell then re-decoded
+  the already-decoded bytes, returning corrupt data and a wrong size.
+  getBlob() now tracks the decoded state per column for the current row
+  and decodes each cell only once, so repeated calls return the same
+  bytes. NOTE: the decode is still done in place, so getString() on a
+  bytea column returns the decoded bytes once getBlob() has run on that
+  cell in the current row; read the string before getBlob() if you need
+  the escaped "\x..." text.
 * Fixed: MySQL: Connection_beginTransactionType() with a non-default
   isolation level sends "SET TRANSACTION ...; START TRANSACTION;" as
   two statements, but the second result was never drained. Since
