@@ -5,8 +5,7 @@
 Version 3.6.0
 -------------
 
-This is libzdb's Snow Leopard release: no new features, many fixes and
-refinements under the hood.
+No new features, many fixes and improvements under the hood.
 
 * Fixed: SQLite: Connection_execute() with a multi-statement string
   retried the whole string on SQLITE_BUSY/SQLITE_LOCKED, so if a later
