@@ -1,14 +1,32 @@
 body {background-color:white;}
-body,div,p,dl, .memname, .memberdecls, .params, .paramname, .tparams, .exception {
-        font: normal normal normal 18px/1.3 "HelveticaNeue", Helvetica, "Arial Narrow", Arial, sans-serif;
+
+/* Base font settings - use !important to override Doxygen's system fonts */
+body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, "Arial Narrow", Arial, sans-serif !important;
+        font-weight: normal;
+        font-style: normal;
+        font-size: 18px;
+        line-height: 1.3;
 }
-h1, h2, h3, h4 {color: rgba(1,1,1,.8);}
+
+/* Elements that should inherit the 18px base size */
+div, p, dl, .memname, .params, .paramname, .tparams, .exception {
+        font-size: inherit;
+}
+
+/* Headings - restore default bold weight, override Doxygen fonts */
+h1, h2, h3, h4, h5, h6 {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, "Arial Narrow", Arial, sans-serif !important;
+        font-weight: bold;
+        color: rgba(1,1,1,.8);
+}
+
 #nav-path {display:none;}
 h2:first-of-type {margin-top:2px; border:none;}
 h2.groupheader {font-size:28px; line-height:28px;color:#286796;box-shadow:none;}
-h2.desc, h2 {font-weight:lighter; margin-top:1em;}
+h2.desc, h2 {font-weight:normal; margin-top:1em;}
 div.groupheader { font-weight:600; font-size:18px;color: rgb(51, 51, 51);}
-h3 {font-size:20px; font-weight:lighter;}
+h3 {font-size:20px; font-weight:400;}
 div.header { background-image:none; background-color: #3498db; color:white; position: absolute;width: 100%;top: 0;}
 div.contents {margin-top: 80px;}
 div.title {text-align:center;font-size: 28px; font-weight:100;}
@@ -30,8 +48,15 @@ span.tt {
     height: auto;
 }
 
+/* Member declarations table - override base 18px */
 table.memberdecls {
     font-size: 15px;
+}
+
+/* Slightly larger description text */
+table.memberdecls td.mdescRight,
+table.memberdecls .mdescRight {
+    font-size: 16px;
 }
 
 .memproto > *, .memitem > * {
@@ -45,11 +70,13 @@ table.memberdecls {
         border-top-left-radius: 5px;
         border-bottom: 1px #b8c8e9 solid;
         background-color: #E4F1FE;
+        font-size: 16px; /* Slightly larger for better readability */
 }
 .memname {
         color: #2c3e50!important;
         text-shadow: none;
         font-weight: 600 !important;
+        font-size: 16px !important; /* Matches description text size */
 }
 pre {white-space: pre-wrap;padding-left:1em;}
 .textinfo {color: #428bca;}
