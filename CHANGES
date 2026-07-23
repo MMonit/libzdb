@@ -5,81 +5,65 @@
 Version 3.6.0
 -------------
 
-No new features, many fixes and improvements under the hood.
-
-* Fixed: SQLite: Connection_execute() with a multi-statement string
-  retried the whole string on SQLITE_BUSY/SQLITE_LOCKED, so if a later
-  statement was busy the earlier statements (already committed as their
-  own autocommit transactions), were re-run, e.g. duplicating an
-  INSERT. Each statement is now prepared and stepped separately, so
-  only the busy statement is retried.
-* Fixed: MySQL and Oracle: PreparedStatement_setBlob() with a non-NULL,
-  zero-length value bound it as SQL NULL (it keyed NULL-ness off size
-  == 0). A zero-length blob is now stored as an empty blob, consistent
-  with PreparedStatement_setString(). Only a NULL pointer binds SQL
-  NULL now.
-* Fixed: PostgreSQL: ResultSet_getBlob() unescaped the bytea value in
-  place in the shared PGresult buffer but did not record that the cell
-  had been decoded. A second getBlob() on the same cell then re-decoded
-  the already-decoded bytes, returning corrupt data and a wrong size.
-  getBlob() now tracks the decoded state per column for the current row
-  and decodes each cell only once, so repeated calls return the same
-  bytes. NOTE: the decode is still done in place, so getString() on a
-  bytea column returns the decoded bytes once getBlob() has run on that
-  cell in the current row; read the string before getBlob() if you need
-  the escaped "\x..." text.
+* Fixed: PostgreSQL: PreparedStatement_setSString() ignored the
+  caller-supplied length, so does libpq and reads text parameters up to
+  the NUL terminator, so it sent the whole string and could over-read a
+  non-terminated buffer. Large text values are now sent by reference in
+  binary format with the exact length. Other values are copied
+  NUL-terminated and kept in text format.
+* Fixed: SQLite: Connection_execute() retried the entire
+  multi-statement string on SQLITE_BUSY/SQLITE_LOCKED, re-running
+  earlier statements that had already committed as their own autocommit
+  transactions. Each statement is now prepared and stepped separately,
+  so only the busy one is retried.
+* Fixed: MySQL and Oracle: PreparedStatement_setBlob() bound a
+  non-NULL, zero-length value as SQL NULL. A zero-length blob is now
+  stored as an empty blob, consistent with PreparedStatement_setString().
+  Only a NULL pointer binds SQL NULL.
+* Fixed: PostgreSQL: ResultSet_getBlob() decoded the bytea value in
+  place without recording it, so a second call to getBlob() on the same
+  cell re-decoded the bytes and returned corrupt data. The decoded
+  state is now tracked per row/column, so repeated calls return the same
+  bytes.
 * Fixed: MySQL: Connection_beginTransactionType() with a non-default
-  isolation level sends "SET TRANSACTION ...; START TRANSACTION;" as
-  two statements, but the second result was never drained. Since
-  CLIENT_MULTI_STATEMENTS is enabled, this left the connection out of
-  sync and the next command failed with CR_COMMANDS_OUT_OF_SYNC. All
-  pending results of a multi-statement query (also for
-  Connection_execute() with ';'-separated statements) are now consumed.
-* Fixed: Connection_commit() cleared the in-transaction flag before
-  calling the underlying database commit. If the commit failed and
-  threw an exception, the connection was left marked as idle, so
-  closing it (or returning it to the pool) skipped the rollback and the
-  connection could be handed out again with an uncommitted or aborted
-  transaction still open. The flag is now cleared only after a
-  successful commit.
+  isolation level sent two statements but drained only the first
+  result, leaving the connection out of sync so the next command failed
+  with CR_COMMANDS_OUT_OF_SYNC. All pending results of a multi-statement
+  query are now consumed.
+* Fixed: Connection_commit() cleared the in-transaction flag before the
+  underlying commit, so a failed commit left the connection marked idle
+  and skipped the rollback when it was closed or returned to the pool.
+  The flag is now cleared only after a successful commit.
 * Fixed: PostgreSQL: PreparedStatement_setDouble() formatted the value
-  with "%lf" (fixed 6-decimal notation), losing precision and
-  corrupting large or small magnitudes, e.g. 1e-10 became 0 and 1e300
-  was truncated to ~1e62. It now uses "%.17g", which round-trips an
-  IEEE-754 double exactly.
-* Fixed: SQLite: PreparedStatement setters only raised an exception on
-  SQLITE_RANGE; any other bind failure (e.g. SQLITE_TOOBIG for a value
-  larger than SQLITE_LIMIT_LENGTH) was silently swallowed, and
-  PreparedStatement_execute() then ran the statement with the parameter
-  left unbound, silently storing NULL. A failed bind now raises an
-  SQLException.
-* Fixed: Oracle: date/timestamp columns were formatted with "IYYY" (the
-  ISO week-numbering year) instead of "YYYY" (the calendar year), so a
-  value near a year boundary was returned with the wrong year, e.g. the
-  date 2024-12-30 (ISO week 1 of 2025) came back as 2025-12-30.
+  with "%lf", losing precision (1e-10 became 0, 1e300 was truncated).
+  It now uses "%.17g", which round-trips an IEEE-754 double exactly.
+* Fixed: SQLite: PreparedStatement setters only threw on SQLITE_RANGE;
+  other bind failures (e.g. SQLITE_TOOBIG) were swallowed and the
+  statement ran with the parameter left unbound, storing NULL. A failed
+  bind now raises an SQLException.
 * Fixed: Oracle: ResultSet_getString() on a date/timestamp column used
-  '.' as the time separator ("YYYY-MM-DD HH.MI.SS"); it now uses ':' to
+  '.' as the time separator ("YYYY-MM-DD HH.MI.SS"). It now uses ':' to
   match libzdb's canonical "YYYY-MM-DD HH:MM:SS" format.
 * Fixed: PostgreSQL: connection URL values (user, password, host,
   dbname, SSL paths, application-name) were interpolated into the libpq
-  conninfo string without escaping. A value containing a single quote
-  or backslash, e.g. a password like ab'cd, produced a malformed
-  connection string, and a crafted value could inject arbitrary
-  conninfo parameters. Such characters are now escaped.
-* Fixed: C++, PreparedStatement::bind()/bindValues() narrowed integer
-  values by size only, ignoring signedness: an unsigned value above
-  INT_MAX (e.g. bind(i, 3000000000u)) was cast to int and wrapped to a
-  negative number. Unsigned values are now promoted to long long; a
-  64-bit unsigned value that exceeds LLONG_MAX cannot be represented
-  and now throws sql_exception instead of wrapping.
-* Fixed: C++, PreparedStatement::bind()/bindValues() and the Connection
-  execute()/executeQuery() variadic overloads silently bound every long
-  value as a SQL timestamp. Because time_t is only a typedef for a
-  built-in integer type, a plain integer such as a row id was stored as
-  a DATETIME. Integral values (including time_t) now bind as integers;
-  bind a std::chrono::system_clock::time_point to store a timestamp.
-  NOTE: C++ code that relied on binding a time_t as a timestamp must
-  now pass a std::chrono::system_clock::time_point instead.
+  conninfo string without escaping, so a value with a quote or
+  backslash produced a malformed string or could inject conninfo
+  parameters. Such characters are now escaped.
+* Fixed: C++: PreparedStatement::bind()/bindValues() narrowed integers
+  by size only, ignoring signedness, so an unsigned value above INT_MAX
+  wrapped to a negative number. Unsigned values now promote to long
+  long, and a 64-bit unsigned value exceeding LLONG_MAX throws
+  sql_exception instead of wrapping.
+* Fixed: C++: bind()/bindValues() and the variadic
+  execute()/executeQuery() overloads bound every long value as a SQL
+  timestamp. Integral values (including time_t) now bind as integers.
+  NOTE: to store a timestamp, use std::chrono::system_clock::time_point.
+* Fixed: PostgreSQL: server NOTICE and WARNING messages that libpq's
+  default notice processor wrote to stderr are now routed to libzdb's
+  debug output instead, visible only if ZBDEBUG is set.
+* Fixed: Oracle: date/timestamp columns were formatted with "IYYY" (ISO
+  week-numbering year) instead of "YYYY", returning the wrong year near
+  year boundaries.
 * Fixed: additional internal hardening, none of which affect documented
   behavior for correct usage.
 
