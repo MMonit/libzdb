@@ -62,9 +62,6 @@ static inline void _append(T S, const char *s, va_list ap) {
                 va_end(ap_copy);
                 if (n < 0)
                         THROW(AssertException, "StringBuffer: vsnprintf failed");
-                // The buffer size is an int; reject content that would not fit
-                // (used + n + 1 bytes are needed) rather than overflowing to a
-                // negative length and passing garbage sizes to RESIZE.
                 if (n >= INT_MAX - S->used)
                         THROW(AssertException, "StringBuffer: content exceeds the maximum size of %d bytes", INT_MAX);
                 if ((S->used + n) < S->length) {

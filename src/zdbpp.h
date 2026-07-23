@@ -34,12 +34,10 @@
 #include <limits>
 #include <optional>
 #include <span>
-#include <variant>
 #include <concepts>
 #include <ranges>
 #include <functional>
 #include <vector>
-#include <unordered_map>
 
 /**
  * @brief zdbpp.h - C++ Interface for libzdb
@@ -1113,11 +1111,11 @@ namespace zdb {
      * *A PreparedStatement is reentrant, but not thread-safe and should only be used
      * by one thread (at a time).*
      *
-     * @note Remember that parameter indices in PreparedStatement are 1-based, not 0-based.
-     *
-     * @note To minimizes memory allocation and avoid unnecessary data copying, string and blob
-     * values are set by reference and _MUST_ remain valid until PreparedStatement::execute()
-     * has been called.
+     * @note
+     * - Remember that parameter indices in PreparedStatement are 1-based, not 0-based.
+     * - To minimizes memory allocation and avoid unnecessary data copying, string and blob
+     *   values are set by reference and _MUST_ remain valid until PreparedStatement::execute()
+     *   has been called.
      *
      * @warning
      * - PreparedStatement objects are internally managed by the Connection that
@@ -1126,10 +1124,8 @@ namespace zdb {
      *   use. Basically, keep the Connection and PreparedStatement objects in the same scope.
      *   Do not attempt to use PreparedStatement objects (including through references or
      *   pointers) after their Connection has been closed and returned to the pool.
-     * - Maximum 99 '?' parameter placeholders are supported.
-     * - The '?' placeholder is translated into '$\<number\>' (PostgreSQL format)
-     *   or ':\<number\>' (Oracle format). If '?' is present in a quoted literal, identifier,
-     *   line-comment or block-comment, the behaviour is undefined.
+     * - The '?' character should only be used as a parameter placeholder in your SQL
+     *   statement. Do not use '?' in string literals, comments, or other SQL contexts.
      */
     class PreparedStatement : private noncopyable {
     public:
@@ -1177,7 +1173,6 @@ namespace zdb {
                 setNull(parameterIndex);
             } else if constexpr (Stringable<std::remove_cvref_t<T>>) {
                 std::string_view sv(x);
-                store_[parameterIndex] = sv;
                 except_wrapper(PreparedStatement_setSString(t_, parameterIndex, sv.data(), static_cast<int>(sv.size())));
             } else if constexpr (Numeric<std::remove_cvref_t<T>>) {
                 using U = std::remove_cvref_t<T>;
@@ -1199,7 +1194,6 @@ namespace zdb {
                 if (std::empty(x)) {
                     setNull(parameterIndex);
                 } else {
-                    store_[parameterIndex] = std::span<const std::byte>(std::data(x), std::size(x));
                     except_wrapper(PreparedStatement_setBlob(t_, parameterIndex, std::data(x), static_cast<int>(std::size(x))));
                 }
             } else if constexpr (TimePoint<std::remove_cvref_t<T>>) {
@@ -1236,7 +1230,6 @@ namespace zdb {
          */
         void execute() {
             except_wrapper(PreparedStatement_execute(t_));
-            store_.clear();
         }
         
         /**
@@ -1284,17 +1277,13 @@ namespace zdb {
         [[nodiscard]] ResultSet executeQuery() {
             except_wrapper(
                            ResultSet_T r = PreparedStatement_executeQuery(t_);
-                           store_.clear();
                            RETURN ResultSet(r);
                            );
         }
         
     private:
         PreparedStatement_T t_;
-        
-        // A store to ensure that we have valid references to reference data
-        std::unordered_map<int, std::variant<std::string_view, std::span<const std::byte>>> store_;
-        
+
         // Sets the parameter at the given index to SQL NULL.
         void setNull(int parameterIndex) { except_wrapper(PreparedStatement_setNull(t_, parameterIndex)); }
         

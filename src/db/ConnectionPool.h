@@ -508,7 +508,7 @@ Connection_T ConnectionPool_getConnection(T P);
  * potential errors:
  *
  * ```c
- * Connection_T con = NULL;
+ * volatile Connection_T con = NULL;
  * TRY
  * {
  *      con = ConnectionPool_getConnectionOrException(p);

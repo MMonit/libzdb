@@ -54,6 +54,18 @@ struct T {
 extern const struct Rop_T sqlite3rops;
 
 
+/* --------------------------------------------------------- Private methods */
+
+
+static void _throwOnBindError(T P) {
+        if (P->lastError == SQLITE_OK)
+                return;
+        if (P->lastError == SQLITE_RANGE)
+                THROW(SQLException, "Parameter index is out of range");
+        THROW_SQL(sqlite3_extended_errcode(P->db), "Connection [%p] %s", P->delegator, sqlite3_errmsg(P->db));
+}
+
+
 /* ------------------------------------------------------------- Constructor */
 
 
@@ -76,15 +88,6 @@ static void _free(T *P) {
         assert(P && *P);
         sqlite3_finalize((*P)->stmt);
         FREE(*P);
-}
-
-
-static void _throwOnBindError(T P) {
-        if (P->lastError == SQLITE_OK)
-                return;
-        if (P->lastError == SQLITE_RANGE)
-                THROW(SQLException, "Parameter index is out of range");
-        THROW_SQL(sqlite3_extended_errcode(P->db), "Connection [%p] %s", P->delegator, sqlite3_errmsg(P->db));
 }
 
 
@@ -139,22 +142,20 @@ static void _setBlob(T P, int parameterIndex, const void *x, int size) {
 static void _execute(T P) {
         assert(P);
         P->lastError = zdb_sqlite3_step(P->stmt);
+        sqlite3_reset(P->stmt);
         switch (P->lastError) {
                 case SQLITE_DONE:
-                        sqlite3_reset(P->stmt);
                         // Clear lastError so the statement can be reused with
                         // _executeQuery(), which refuses to run unless the state
-                        // is SQLITE_OK: only a failed bind should block execution
+                        // is SQLITE_OK
                         P->lastError = SQLITE_OK;
                         break;
                 case SQLITE_ROW:
-                        sqlite3_reset(P->stmt);
                         // The statement is reset and remains reusable
                         P->lastError = SQLITE_OK;
                         THROW(SQLException, "Select statement not allowed in PreparedStatement_execute()");
                         break;
                 default:
-                        sqlite3_reset(P->stmt);
                         THROW_SQL(sqlite3_extended_errcode(P->db), "Connection [%p] %s", P->delegator, sqlite3_errmsg(P->db));
                         break;
         }

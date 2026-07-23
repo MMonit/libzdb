@@ -71,7 +71,7 @@ struct T {
 // May be called with dest == src to decode in place: in both formats the write
 // position never overtakes the read position.
 static inline int _unescape_bytea(const uchar_t *src, int len, uchar_t *dest) {
-        register int i, j;
+        int i, j;
         if (len >= 2 && src[0] == '\\' && src[1] == 'x') { // bytea hex format
                 static const uchar_t hex[128] = {
                         0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -84,10 +84,6 @@ static inline int _unescape_bytea(const uchar_t *src, int len, uchar_t *dest) {
                         0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                 };
                 for (i = 0, j = 2; j + 1 < len; j++) {
-                        // Whitespace between hex pairs is allowed 🤔. Decode only
-                        // well-formed pairs: getBlob() may be called on a non-bytea
-                        // text column whose value happens to start with "\x", and a
-                        // non-hex byte (e.g. UTF-8 >= 0x80) must not index hex[]
                         if (isxdigit(src[j]) && isxdigit(src[j + 1])) {
                                 dest[i] = hex[src[j]] << 4;
                                 dest[i] |= hex[src[j + 1]];
@@ -201,7 +197,8 @@ static const char *_getString(T R, int columnIndex) {
 }
 
 
-// Decode the escaped bytea value in place inside the PGresult buffer (no extra allocation, the decoded form is never longer than the escaped form).
+// Decode the escaped bytea value in place inside the PGresult buffer (no extra
+// allocation, the decoded form is never longer than the escaped form)
 static const void *_getBlob(T R, int columnIndex, int *size) {
         assert(R);
         int i = checkAndSetColumnIndex(columnIndex, R->columnCount);
@@ -209,8 +206,6 @@ static const void *_getBlob(T R, int columnIndex, int *size) {
         if (PQgetisnull(R->res, R->currentRow, i))
                 return NULL;
         uchar_t *value = (uchar_t*)PQgetvalue(R->res, R->currentRow, i);
-        // If R->blobSize[i] is -1, this is the first _getBlob() call and escaping is needed. Repeated getBlob() on the same cell skips the decode.
-        // Note that getString() on the same cell after getBlob() returns the decoded binary, not the original escaped text.
         if (R->blobSize[i] < 0) {
                 R->blobSize[i] = _unescape_bytea(value, PQgetlength(R->res, R->currentRow, i), value);
                 value[R->blobSize[i]] = 0;

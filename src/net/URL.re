@@ -195,9 +195,6 @@ authority:
          port
          {
                 U->portStr = U->yytoken + 1; // read past ':'
-                // Parse without throwing: a malformed or out-of-range port must make
-                // URL parsing fail (return NULL) like any other bad URL, not throw an
-                // exception that would abort the process if the caller has no handler.
                 errno = 0;
                 long p = strtol(U->portStr, NULL, 10);
                 if (errno || p < 1 || p > 65535)

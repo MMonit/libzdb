@@ -166,41 +166,13 @@
  * ```
  *
  *
- * ## Error codes
+ * ## Database-Specific Error Codes
  *
  * In addition to the exception message, `Exception_frame.errorCode`
  * provides the numeric error code from the underlying database when
- * available. This allows for more robust error handling. For example,
- * to handle a MySQL deadlock:
- *
- * ```c
- * TRY
- * {
- *      Connection_execute(c, sql);
- * }
- * ELSE
- * {
- *      if (Exception_frame.errorCode == ER_LOCK_DEADLOCK) {
- *              // Retry the transaction
- *      } else {
- *              log("Database error %d: %s\n",
- *                  Exception_frame.errorCode,
- *                  Exception_frame.message);
- *      }
- * }
- * END_TRY;
- * ```
- *
- * The error code is database-specific; consult your database's documentation
- * for the meaning of specific codes (e.g., MySQL error codes, PostgreSQL
- * SQLSTATE values, etc.). A value of 0 typically indicates no specific
- * error code was provided.
- *
- *
- * ## Database-Specific Error Codes
- *
- * The error code in `Exception_frame.errorCode` is database-specific. Each
- * database backend provides error codes in their own format:
+ * available. A value of 0 typically indicates no specific error code
+ * was provided. Each database backend provides error codes in their
+ * own format:
  *
  * ### PostgreSQL
  *
@@ -329,7 +301,7 @@
  * }
  * ELSE
  * {
- *      assert(i == 1); // Unless declared volatile i would be 0 here
+ *      assert(i == 1); // Unless declared volatile i could be 0 here
  * }
  * END_TRY;
  * assert(i == 1); // i will be 1 here regardless if it is declared volatile or not

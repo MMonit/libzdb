@@ -106,7 +106,7 @@ bool Str_member(const char *s, const char **set) {
 char *Str_copy(char *dest, const char *src, int n) {
         if (src && dest && (n > 0)) {
                 char *t = dest;
-                while (*src && --n) // reserve one slot for the '\0' => never write past dest[n-1]
+                while (*src && --n)
                         *t++ = *src++;
                 *t = 0;
         } else if (dest)
@@ -177,9 +177,6 @@ int Str_parseInt(const char *s) {
         long l = strtol(s, &e, 10);
         if (errno || (e == s))
                 THROW(SQLException, "NumberFormatException: For input string %s -- %s", s, System_getLastError());
-        // long is wider than int on LP64: strtol only sets ERANGE outside
-        // [LONG_MIN, LONG_MAX], so a value that fits in a long but not in an
-        // int would otherwise be silently truncated by the cast
         if (l < INT_MIN || l > INT_MAX)
                 THROW(SQLException, "NumberFormatException: For input string %s -- %s", s, System_getError(ERANGE));
         return (int)l;

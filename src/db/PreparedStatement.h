@@ -118,17 +118,15 @@
  * *A PreparedStatement is reentrant, but not thread-safe and should only be used
  * by one thread (at a time).*
  *
- * @note Remember that parameter indices in PreparedStatement are 1-based, not 0-based.
- *
- * @note To minimizes memory allocation and avoid unnecessary data copying, string
- * and blob values are set by reference and MUST remain valid until either
- * PreparedStatement_execute() or PreparedStatement_executeQuery() is called.
+ * @note
+ * - Remember that parameter indices in PreparedStatement are 1-based, not 0-based.
+ * - To minimizes memory allocation and avoid unnecessary data copying, string
+ *   and blob values are set by reference and MUST remain valid until either
+ *   PreparedStatement_execute() or PreparedStatement_executeQuery() is called.
  *
  * @warning
- * - Maximum 99 '?' parameter placeholders are supported.
- * - The '?' placeholder is translated into '$\<number\>' (PostgreSQL format)
- *   or ':\<number\>' (Oracle format). If '?' is present in a quoted literal, identifier,
- *   line-comment or block-comment, the behaviour is undefined.
+ * The '?' character should only be used as a parameter placeholder in your SQL
+ * statement. Do not use '?' in string literals, comments, or other SQL contexts.
  *
  * @see Connection.h ResultSet.h SQLException.h
  * @file

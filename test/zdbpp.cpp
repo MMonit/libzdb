@@ -74,13 +74,15 @@ static void testPrepared(ConnectionPool& pool) {
     PreparedStatement prep = con.prepareStatement("INSERT INTO zild_t (name, percent, image, created_at) VALUES(?, ?, ?, ?);");
     
     con.beginTransaction();
+    auto ts = std::chrono::system_clock::now();
     for (const auto& [name, image] : data) {
         prep.bindValues(name,
                         random_double_0_to_10(),
                         std::span<const std::byte>(reinterpret_cast<const std::byte*>(image.data()), image.size()),
-                        std::chrono::system_clock::now()
+                        ts
                         );
         prep.execute();
+        ts += std::chrono::seconds(1);
     }
     
     //Instead of binding all values at once we can also bind values one-by-one
@@ -88,7 +90,7 @@ static void testPrepared(ConnectionPool& pool) {
     prep.bind(2, 10);
     std::string_view kanagawa = "\u795E\u5948\u5DDD\u6C96\u6D6A\u88CF";
     prep.bind(3, std::span<const std::byte>(reinterpret_cast<const std::byte*>(kanagawa.data()), kanagawa.size()));
-    prep.bind(4, std::chrono::system_clock::now());
+    prep.bind(4, ts);
     prep.execute();
 
     // Regression: a plain long/time_t value must bind as an INTEGER, not be

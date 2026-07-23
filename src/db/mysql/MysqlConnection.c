@@ -61,7 +61,7 @@ extern const struct Pop_T mysqlpops;
 /* --------------------------------------------------------- Private methods */
 
 
-static bool _isConnectedToMySQLProxy(MYSQL *db, char **error) {
+static bool _isConnectedToProxy(MYSQL *db, char **error) {
         const char *server_info = mysql_get_server_info(db);
         if (!server_info) return false;
         
@@ -180,7 +180,7 @@ static MYSQL *_doConnect(Connection_T delegator, char **error) {
         if (mysql_real_connect(db, host, user, password, database, port, unix_socket, clientFlags)) {
                 // Check for MySQL Proxies after successful connection (unless explicitly allowed)
                 if (!Str_parseBool(URL_getParameter(url, "allow-proxy"))) {
-                        if (_isConnectedToMySQLProxy(db, error))
+                        if (_isConnectedToProxy(db, error))
                                 goto error;
                 }
                 return db;

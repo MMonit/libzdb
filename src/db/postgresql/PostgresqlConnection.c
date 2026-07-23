@@ -93,9 +93,7 @@ extern const struct Pop_T postgresqlpops;
 
 
 // Append a libpq conninfo "key='value' " pair, escaping the ' and \ characters
-// that are special inside a single-quoted value. Without this a value containing
-// a quote (e.g. a password like ab'cd) would break the connection string, and a
-// crafted value (e.g. x' host='evil) could inject arbitrary conninfo parameters.
+// that are special inside a single-quoted value.
 static void _appendConnInfo(StringBuffer_T sb, const char *key, const char *value) {
         StringBuffer_append(sb, "%s='", key);
         for (const char *p = value; *p; p++) {
@@ -108,43 +106,48 @@ static void _appendConnInfo(StringBuffer_T sb, const char *key, const char *valu
 }
 
 
+static void _noticeProcessor(void *arg, const char *message) {
+        DEBUG("%s", message);
+}
+
+
 static bool _doConnect(T C, char **error) {
 #define ERROR(e) do {*error = Str_dup(e); goto error;} while (0)
         URL_T url = Connection_getURL(C->delegator);
-        /* User */
+        // User
         if (URL_getUser(url))
                 _appendConnInfo(C->sb, "user", URL_getUser(url));
         else if (URL_getParameter(url, "user"))
                 _appendConnInfo(C->sb, "user", URL_getParameter(url, "user"));
         else
                 ERROR("no username specified in URL");
-        /* Password */
+        // Password
         if (URL_getPassword(url))
                 _appendConnInfo(C->sb, "password", URL_getPassword(url));
         else if (URL_getParameter(url, "password"))
                 _appendConnInfo(C->sb, "password", URL_getParameter(url, "password"));
         else if (! URL_getParameter(url, "unix-socket"))
                 ERROR("no password specified in URL");
-        /* Host */
+        // Host
         if (URL_getParameter(url, "unix-socket")) {
                 if (URL_getParameter(url, "unix-socket")[0] != '/')
                         ERROR("invalid unix-socket directory");
                 _appendConnInfo(C->sb, "host", URL_getParameter(url, "unix-socket"));
         } else if (URL_getHost(url)) {
                 _appendConnInfo(C->sb, "host", URL_getHost(url));
-                /* Port */
+                // Port
                 if (URL_getPort(url) > 0)
                         StringBuffer_append(C->sb, "port=%d ", URL_getPort(url));
                 else
                         ERROR("no port specified in URL");
         } else
                 ERROR("no host specified in URL");
-        /* Database name */
+        // Database name
         if (URL_getPath(url))
                 _appendConnInfo(C->sb, "dbname", URL_getPath(url) + 1);
         else
                 ERROR("no database specified in URL");
-        /* SSL Options */
+        // SSL Options
         StringBuffer_append(C->sb, "sslmode='%s' ", Str_parseBool(URL_getParameter(url, "use-ssl")) ? "require" : "disable");
         if (URL_getParameter(url, "ssl-ca")) {
                 _appendConnInfo(C->sb, "sslrootcert", URL_getParameter(url, "ssl-ca"));
@@ -155,17 +158,19 @@ static bool _doConnect(T C, char **error) {
         if (URL_getParameter(url, "ssl-key")) {
                 _appendConnInfo(C->sb, "sslkey", URL_getParameter(url, "ssl-key"));
         }
-        /* Other Options */
+        // Other Options
         if (URL_getParameter(url, "connect-timeout")) {
                 StringBuffer_append(C->sb, "connect_timeout=%d ", Str_parseInt(URL_getParameter(url, "connect-timeout")));
         } else
                 StringBuffer_append(C->sb, "connect_timeout=%lld ", SQL_DEFAULT_TIMEOUT/MSEC_PER_SEC);
         if (URL_getParameter(url, "application-name"))
                 _appendConnInfo(C->sb, "application_name", URL_getParameter(url, "application-name"));
-        /* Connect */
+        // Connect
         C->db = PQconnectdb(StringBuffer_toString(C->sb));
-        if (PQstatus(C->db) == CONNECTION_OK)
+        if (PQstatus(C->db) == CONNECTION_OK) {
+                PQsetNoticeProcessor(C->db, _noticeProcessor, NULL);
                 return true;
+        }
         *error = Str_dup(PQerrorMessage(C->db));
 error:
         return false;
@@ -306,7 +311,7 @@ static PreparedStatement_T _prepareStatement(T C, const char *sql, va_list ap) {
         StringBuffer_vset(C->sb, sql, ap_copy);
         va_end(ap_copy);
         int paramCount = StringBuffer_prepare4postgres(C->sb);
-        uint32_t t = kStatementID++; // increment is atomic
+        uint32_t t = kStatementID++;
         char *name = Str_cat("__libzdb-%d", t);
         C->res = PQprepare(C->db, name, StringBuffer_toString(C->sb), 0, NULL);
         C->lastError = C->res ? PQresultStatus(C->res) : PGRES_FATAL_ERROR;

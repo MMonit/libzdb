@@ -75,13 +75,13 @@
  *
  * ### Transaction Example
  * @code
- * Connection_T con = NULL;
+ * volatile Connection_T con = NULL;
  * TRY
  * {
  *     con = ConnectionPool_getConnectionOrException(pool);
  *     Connection_beginTransaction(con);
  *     Connection_execute(con, "UPDATE accounts SET balance = balance - %f WHERE id = %d", 100.0, 1);
- *     Connection_execute(con, "UPDATE accounts SET balance = balance + %f WHERE id = %d", 100.0, 2);
+ *     Connection_execute(con, "UPDATE accounts SET balance = %f WHERE id = %d", 100.0, 2);
  *     Connection_commit(con);
  *     printf("Transfer successful\n");
  * }
@@ -120,10 +120,7 @@
  * @note When Connection_close() is called on a Connection object, it is
  * automatically returned to the pool. If the connection is still in a
  * transaction at this point, the transaction will be automatically rolled
- * back. This ensures data integrity even when exceptions occur. It's
- * recommended to always call Connection_close() in a FINALLY block to
- * guarantee proper resource management and transaction handling. See the
- * Transaction Example above for a practical demonstration of this behavior.
+ * back. This ensures data integrity even when exceptions occur.
  *
  * @see ResultSet.h PreparedStatement.h SQLException.h
  * @file
@@ -513,7 +510,7 @@ void Connection_execute(T C, const char *sql, ...) __attribute__((format (printf
  * executes all SQL statements in its input string. If the sql
  * parameter string contains more than one SQL statement, only the
  * first statement is executed, the others are silently ignored.
- * A ResultSet a valid until the next call to Connection_executeQuery(),
+ * A ResultSet is valid until the next call to Connection_executeQuery(),
  * Connection_execute() or until the Connection is returned to the Connection
  * Pool. *This means that Result Sets cannot be saved between queries*.
  *

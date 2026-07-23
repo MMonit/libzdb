@@ -336,7 +336,7 @@ static const char *_getString(T R, int columnIndex) {
                         THROW(SQLException, "%s", ERR(R));
         } else if (R->columns[i].lob_loc) {
                 // BLOB/CLOB columns should use ResultSet_getBlob()
-                DEBUG("_getString: column %d is a LOB type, use getBlob() instead\n", columnIndex);
+                DEBUG("getString: column %d is a BLOB type, use getBlob() instead\n", columnIndex);
                 return NULL;
         }
         if (R->columns[i].buffer)

@@ -100,34 +100,14 @@ static void testPool(const char *testURL) {
                 ConnectionPool_free(&pool);
                 assert(pool==NULL);
                 URL_free(&url);
-                // Regression: disabling the reaper AFTER start() must still join the reaper
-                // thread on stop/free. Otherwise free() destroys the mutex/cond the reaper is
-                // still waiting on (setReaper(0) only cleared doSweep, and stop() used that
-                // stale flag to decide whether to join the thread).
-                {
-                        url = URL_new(testURL);
-                        pool = ConnectionPool_new(url);
-                        assert(pool);
-                        ConnectionPool_start(pool);        // reaper thread started (sweep on by default)
-                        ConnectionPool_setReaper(pool, 0); // disable reaper AFTER it was started
-                        volatile int clean = 0;
-                        TRY {
-                                ConnectionPool_stop(pool);
-                                ConnectionPool_free(&pool);
-                                clean = 1;
-                        } ELSE {
-                                clean = 0; // buggy: destroying the mutex/cond the reaper waits on throws
-                        } END_TRY;
-                        assert(clean);
-                        assert(pool == NULL);
-                        URL_free(&url);
-                }
-                // Test that exception is thrown on start error
+                // Test that exception is thrown on start error. Note that url and pool
+                // are set up *before* the TRY block; assigning them inside it would
+                // require them to be declared volatile as they are used in FINALLY
+                url = URL_new("not://a/database");
+                pool = ConnectionPool_new(url);
+                assert(pool);
                 TRY
                 {
-                        url = URL_new("not://a/database");
-                        pool = ConnectionPool_new(url);
-                        assert(pool);
                         ConnectionPool_start(pool);
                         printf("\tResult: Test failed -- exception not thrown\n");
                         exit(1);
@@ -177,7 +157,7 @@ static void testPool(const char *testURL) {
                 // Before the fix Connection_commit() cleared the flag *before* calling the
                 // delegate, so a failed commit left the connection looking idle and its
                 // uncommitted transaction was never rolled back.
-                if (Str_startsWith(testURL, "sqlite")) {
+                if (ConnectionPool_getType(pool) == CONNECTIONPOOL_SQLITE) {
                         printf("\tResult: check failed commit keeps transaction open..");
                         Connection_execute(con, "PRAGMA foreign_keys = ON;");
                         Connection_execute(con, "drop table if exists fk_child;");
@@ -206,9 +186,10 @@ static void testPool(const char *testURL) {
                 // malformed (or a crafted value could inject conninfo parameters). Create a
                 // role whose password contains a quote and connect as it. TRY-guarded, so it
                 // is skipped where the test role cannot create roles.
-                if (Str_startsWith(testURL, "postgres")) {
+                if (ConnectionPool_getType(pool) == CONNECTIONPOOL_POSTGRESQL) {
                         volatile int roleCreated = 0;
                         TRY {
+                                Connection_execute(con, "set client_min_messages=warning;");
                                 Connection_execute(con, "drop role if exists zdb_quote;");
                                 Connection_execute(con, "create role zdb_quote login password 'pa''ss';"); // password is pa'ss
                                 roleCreated = 1;
@@ -331,7 +312,7 @@ static void testPool(const char *testURL) {
                         const char *image = ResultSet_getStringByName(rset, "image");
                         const void *blob = ResultSet_getBlobByName(rset, "image", &imagesize);
                         // Oracle does not support getting blob as string
-                        if (! Str_startsWith(testURL, "oracle")) {
+                        if (ConnectionPool_getType(pool) != CONNECTIONPOOL_ORACLE) {
                                 assert(image && blob);
                                 // getString on a BLOB returns the raw bytes (length 8191 up to the
                                 // trailing NUL). On PostgreSQL the bytea was decoded in place by
@@ -493,18 +474,42 @@ static void testPool(const char *testURL) {
 
                 // Regression (PostgreSQL): setSString() must honor the caller-supplied
                 // length. libpq ignores paramLengths for text-format params and reads to
-                // the NUL, so before the fix the whole string was sent; the value is now
-                // copied into an owned, NUL-terminated buffer of exactly 'size' bytes.
+                // the NUL. Small strings are copied into a NUL-terminated buffer; strings
+                // above the zero-copy threshold bound to text-class columns are sent by
+                // reference in binary format with the exact length (no copy, no NUL).
                 if (ConnectionPool_getType(pool) == CONNECTIONPOOL_POSTGRESQL) {
                         printf("\tResult: check setSString honors length..");
+                        Connection_execute(con, "set client_min_messages=warning;");
                         Connection_execute(con, "drop table if exists sstr_t;");
-                        Connection_execute(con, "create table sstr_t(x varchar(64));");
-                        PreparedStatement_T ps = Connection_prepareStatement(con, "insert into sstr_t values (?);");
+                        Connection_execute(con, "create table sstr_t(x text, d date);");
+                        PreparedStatement_T ps = Connection_prepareStatement(con, "insert into sstr_t values (?, ?);");
+                        // Small string: copy path (text format)
                         PreparedStatement_setSString(ps, 1, "hello world", 5); // only the first 5 chars
+                        PreparedStatement_setSString(ps, 2, "2024-12-28 extra", 10); // typed column stays on the text path
                         PreparedStatement_execute(ps);
-                        ResultSet_T sr = Connection_executeQuery(con, "select x from sstr_t;");
+                        // Large string: triggers describe; text-class param is bound by
+                        // reference in binary format. Buffer is deliberately not
+                        // NUL-terminated at 'n' and has trailing garbage that must not
+                        // be sent. The date param reuses the (now cached) type info and
+                        // must stay on the text-format copy path.
+                        int n = 4096; // > ZEROCOPY_THRESHOLD in PostgresqlPreparedStatement.c
+                        char *big = ALLOC(n + 5);
+                        assert(big);
+                        memset(big, 'x', n);
+                        memcpy(big + n, "EXTRA", 5); // no NUL within big[0 .. n+4]
+                        PreparedStatement_setSString(ps, 1, big, n);
+                        PreparedStatement_setSString(ps, 2, "2025-01-01", 10);
+                        PreparedStatement_execute(ps);
+                        FREE(big);
+                        ResultSet_T sr = Connection_executeQuery(con, "select x, d::text from sstr_t order by length(x);");
                         assert(ResultSet_next(sr));
                         assert(IS(ResultSet_getString(sr, 1), "hello")); // before the fix: "hello world"
+                        assert(IS(ResultSet_getString(sr, 2), "2024-12-28"));
+                        assert(ResultSet_next(sr));
+                        const char *bx = ResultSet_getString(sr, 1);
+                        assert((int)strlen(bx) == n); // exactly 'n' bytes: no truncation, no trailing EXTRA
+                        assert(bx[0] == 'x' && bx[n - 1] == 'x' && strstr(bx, "EXTRA") == NULL);
+                        assert(IS(ResultSet_getString(sr, 2), "2025-01-01"));
                         Connection_execute(con, "drop table if exists sstr_t;");
                         printf("success\n");
                 }
@@ -582,7 +587,7 @@ static void testPool(const char *testURL) {
                                 assert(ResultSet_getInt(r, 1) == 12);
                                 Connection_commit(con);
                                 ok = 1;
-                        } CATCH(SQLException) {
+                        } ELSE {
                                 ok = 0; // buggy: the next command throws CR_COMMANDS_OUT_OF_SYNC
                         } END_TRY;
                         assert(ok);
@@ -616,7 +621,7 @@ static void testPool(const char *testURL) {
                         printf("success\n");
                 }
 
-                /* Need to close and release statements before
+                /* Need to release statements before
                    we can drop the table, sqlite need this */
                 Connection_clear(con);
                 Connection_execute(con, "drop table zild_t;");
@@ -631,6 +636,29 @@ static void testPool(const char *testURL) {
         
         printf("=> Test7: reaper start/stop\n");
         {
+                // Regression: disabling the reaper AFTER start() must still join the reaper
+                // thread on stop/free. Otherwise free() destroys the mutex/cond the reaper is
+                // still waiting on (setReaper(0) only cleared doSweep, and stop() used that
+                // stale flag to decide whether to join the thread).
+                {
+                        url = URL_new(testURL);
+                        pool = ConnectionPool_new(url);
+                        assert(pool);
+                        ConnectionPool_start(pool);        // reaper thread started (sweep on by default)
+                        ConnectionPool_setReaper(pool, 0); // disable reaper AFTER it was started
+                        volatile int clean = 0;
+                        TRY {
+                                ConnectionPool_stop(pool);
+                                ConnectionPool_free(&pool);
+                                clean = 1;
+                        } ELSE {
+                                clean = 0; // buggy: destroying the mutex/cond the reaper waits on throws
+                        } END_TRY;
+                        assert(clean);
+                        assert(pool == NULL);
+                        URL_free(&url);
+                }
+                // Test that the reaper thread harvest idle connections
                 int i;
                 Vector_T v = Vector_new(20);
                 url = URL_new(testURL);
@@ -681,6 +709,9 @@ static void testPool(const char *testURL) {
 
         printf("=> Test8: Exceptions handling\n");
         {
+                // Note that con is always set up *before* the TRY blocks below, never
+                // inside them. Assigning it inside would require it to be declared
+                // volatile since it is used in the CATCH and FINALLY blocks
                 Connection_T con;
                 ResultSet_T result;
                 url = URL_new(testURL);
@@ -773,9 +804,9 @@ static void testPool(const char *testURL) {
                  * SQL errors or api errors such as prepared statement parameter index
                  * out of range, while Connection_getLastError(con) only has SQL errors
                  */
+                assert((con = ConnectionPool_getConnection(pool)));
                 TRY
                 {
-                        assert((con = ConnectionPool_getConnection(pool)));
                         Connection_execute(con, "%s", schema);
                         /* Creating the table again should fail and we
                         should not come here */
@@ -796,9 +827,9 @@ static void testPool(const char *testURL) {
                         Connection_close(con);
                 }
                 END_TRY;
+                assert((con = ConnectionPool_getConnection(pool)));
                 TRY
                 {
-                        assert((con = ConnectionPool_getConnection(pool)));
                         printf("\tTesting: Query with errors.. ");
                         Connection_executeQuery(con, "blablabala;");
                         printf("\tResult: Test failed -- exception not thrown\n");
@@ -819,10 +850,10 @@ static void testPool(const char *testURL) {
                         Connection_close(con);
                 }
                 END_TRY;
+                assert((con = ConnectionPool_getConnection(pool)));
                 TRY
                 {
                         printf("\tTesting: Prepared statement query with errors.. ");
-                        assert((con = ConnectionPool_getConnection(pool)));
                         PreparedStatement_T p = Connection_prepareStatement(con, "blablabala;");
                         ResultSet_T r = PreparedStatement_executeQuery(p);
                         while(ResultSet_next(r));
@@ -844,9 +875,9 @@ static void testPool(const char *testURL) {
                         Connection_close(con);
                 }
                 END_TRY;
+                assert((con = ConnectionPool_getConnection(pool)));
                 TRY
                 {
-                        assert((con = ConnectionPool_getConnection(pool)));
                         printf("\tTesting: Column index out of range.. ");
                         result = Connection_executeQuery(con, "select id, name from zild_t;");
                         while (ResultSet_next(result)) {
@@ -867,9 +898,9 @@ static void testPool(const char *testURL) {
                         Connection_close(con);
                 }
                 END_TRY;
+                assert((con = ConnectionPool_getConnection(pool)));
                 TRY
                 {
-                        assert((con = ConnectionPool_getConnection(pool)));
                         printf("\tTesting: Invalid column name.. ");
                         result = Connection_executeQuery(con, "select name from zild_t;");
                         while (ResultSet_next(result)) {
@@ -886,9 +917,9 @@ static void testPool(const char *testURL) {
                         Connection_close(con);
                 }
                 END_TRY;
+                assert((con = ConnectionPool_getConnection(pool)));
                 TRY
                 {
-                        assert((con = ConnectionPool_getConnection(pool)));
                         PreparedStatement_T p = Connection_prepareStatement(con, "update zild_t set name = ? where id = ?;");
                         printf("\tTesting: Parameter index out of range.. ");
                         PreparedStatement_setInt(p, 3, 123);
@@ -905,9 +936,9 @@ static void testPool(const char *testURL) {
                         Connection_close(con);
                 }
                 END_TRY;
+                assert((con = ConnectionPool_getConnection(pool)));
                 TRY
                 {
-                        assert((con = ConnectionPool_getConnection(pool)));
                         printf("\tTesting: select from non-existing table.. ");
                         result = Connection_executeQuery(con, "select name from X;");
                         while (ResultSet_next(result)) {
@@ -1002,14 +1033,14 @@ static void testPool(const char *testURL) {
                 ConnectionPool_setReaper(pool, 0); // disable reaper
                 ConnectionPool_start(pool);
                 Connection_T con = ConnectionPool_getConnection(pool);
-                if (Str_startsWith(testURL, "postgres"))
+                if (ConnectionPool_getType(pool) == CONNECTIONPOOL_POSTGRESQL)
                         Connection_execute(con, "create table zild_t(d date, t time, dt timestamp, ts timestamp)");
-                else if (Str_startsWith(testURL, "oracle"))
+                else if (ConnectionPool_getType(pool) == CONNECTIONPOOL_ORACLE)
                         Connection_execute(con, "create table zild_t(d date, t date, dt date, ts timestamp)");
                 else
                         Connection_execute(con, "create table zild_t(d date, t time, dt datetime, ts timestamp);");
                 PreparedStatement_T p = Connection_prepareStatement(con, "insert into zild_t values(?, ?, ?, ?);");
-                if (Str_startsWith(testURL, "oracle")) { // Oracle does not have a pure time data type
+                if (ConnectionPool_getType(pool) == CONNECTIONPOOL_ORACLE) { // Oracle does not have a pure time data type
                         Connection_execute(con, "alter session set nls_date_format='YYYY-MM-DD HH24:MI:SS';");
                         Connection_execute(con, "alter session set nls_timestamp_format='YYYY-MM-DD HH24:MI:SS';");
                         PreparedStatement_setString(p, 1, "2013-12-28 00:00:00");
@@ -1035,7 +1066,7 @@ static void testPool(const char *testURL) {
                         assert(date.tm_mday == 28);
                         assert(date.TM_GMTOFF == 0);
                         // Check Time
-                        if (! Str_startsWith(testURL, "oracle"))
+                        if (ConnectionPool_getType(pool) == CONNECTIONPOOL_ORACLE)
                                 assert(time.tm_year == 0);
                         assert(time.tm_hour == 10);
                         assert(time.tm_min == 12);
@@ -1043,7 +1074,7 @@ static void testPool(const char *testURL) {
                         assert(time.TM_GMTOFF == 0);
                         // Check datetime
                         assert(datetime.tm_year == 2013);
-                        assert(datetime.tm_mon == 11); // Remember month - 1
+                        assert(datetime.tm_mon == 11);
                         assert(datetime.tm_mday == 28);
                         assert(datetime.tm_hour == 10);
                         assert(datetime.tm_min == 12);
@@ -1053,7 +1084,7 @@ static void testPool(const char *testURL) {
                         assert(timestamp == 1388225562);
                         // Check timestamp as datetime
                         assert(timestampAsTm.tm_year == 2013);
-                        assert(timestampAsTm.tm_mon == 11); // Remember month - 1
+                        assert(timestampAsTm.tm_mon == 11);
                         assert(timestampAsTm.tm_mday == 28);
                         assert(timestampAsTm.tm_hour == 10);
                         assert(timestampAsTm.tm_min == 12);
@@ -1073,7 +1104,7 @@ static void testPool(const char *testURL) {
                 // IYYY (ISO week-numbering year), which would report 2025.
                 Connection_execute(con, "delete from zild_t;");
                 PreparedStatement_T pb = Connection_prepareStatement(con, "insert into zild_t (d) values (?);");
-                if (Str_startsWith(testURL, "oracle"))
+                if (ConnectionPool_getType(pool) == CONNECTIONPOOL_ORACLE)
                         PreparedStatement_setString(pb, 1, "2024-12-30 00:00:00");
                 else
                         PreparedStatement_setString(pb, 1, "2024-12-30");
@@ -1086,7 +1117,7 @@ static void testPool(const char *testURL) {
                         assert(bd.tm_mday == 30);
                         // Oracle: getString on a date column must use ':' as the time
                         // separator (canonical "YYYY-MM-DD HH:MM:SS"), not '.'.
-                        if (Str_startsWith(testURL, "oracle")) {
+                        if (ConnectionPool_getType(pool) == CONNECTIONPOOL_ORACLE) {
                                 const char *ds = ResultSet_getString(rb, 1);
                                 assert(ds && strchr(ds, ':') && !strchr(ds, '.'));
                         }
