@@ -1316,7 +1316,6 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)",
 					$SRCROOT/oci/lib,
-					"/usr/local/mysql-8.0.32-macos13-arm64/lib",
 				);
 				PRIVATE_HEADERS_FOLDER_PATH = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1346,7 +1345,6 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)",
 					$SRCROOT/oci/lib,
-					"/usr/local/mysql-8.0.32-macos13-arm64/lib",
 				);
 				PRIVATE_HEADERS_FOLDER_PATH = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";

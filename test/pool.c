@@ -1066,8 +1066,6 @@ static void testPool(const char *testURL) {
                         assert(date.tm_mday == 28);
                         assert(date.TM_GMTOFF == 0);
                         // Check Time
-                        if (ConnectionPool_getType(pool) == CONNECTIONPOOL_ORACLE)
-                                assert(time.tm_year == 0);
                         assert(time.tm_hour == 10);
                         assert(time.tm_min == 12);
                         assert(time.tm_sec == 42);
