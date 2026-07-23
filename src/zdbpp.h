@@ -148,7 +148,7 @@
  * auto con = pool.getConnection();
  *
  * auto stmt = con.prepareStatement("INSERT INTO logs (message, timestamp) VALUES (?, ?)");
- * stmt.bindValues("User logged in", std::time(nullptr));
+ * stmt.bindValues("User logged in", std::chrono::system_clock::now());
  * stmt.execute();
  * ```
  *
@@ -1360,7 +1360,7 @@ namespace zdb {
      * @code
      * Connection con = pool.getConnection();
      * auto stmt = con.prepareStatement("INSERT INTO logs (message, timestamp) VALUES (?, ?)");
-     * stmt.bindValues("User logged in", std::time(nullptr));
+     * stmt.bindValues("User logged in", std::chrono::system_clock::now());
      * stmt.execute();
      * std::cout << "Rows affected: " << stmt.rowsChanged() << std::endl;
      * @endcode

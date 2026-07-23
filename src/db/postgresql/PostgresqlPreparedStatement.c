@@ -37,7 +37,7 @@
  * All parameter values are sent as text except for blobs and large strings bound
  * to text-class columns (text, varchar, char), which are sent in binary format.
  * libpq ignores paramLengths for text-format parameters and reads the value up to
- * the NUL terminator, but honors it for binary-format parameters — and for the
+ * the NUL terminator [1], but honors it for binary-format parameters — and for the
  * text-class types the binary wire format is simply the raw string bytes. So for
  * parameters the server inferred as a text-class type we bind the caller's buffer
  * by reference with the caller-supplied length: no copy and no NUL termination
@@ -48,6 +48,8 @@
  * of typed columns (dates, numbers, json, ...) — and are copied into a
  * NUL-terminated buffer (inline for short values, else an owned heap buffer) so
  * the caller-supplied length is honored and non-NUL-terminated buffers are safe.
+ *
+ * 1. We set length anyway to document intent
  *
  * @file
  */
