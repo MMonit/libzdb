@@ -249,9 +249,12 @@ static void _setQueryTimeout(T C, int ms) {
 }
 
 
-// CLIENT_MULTI_STATEMENTS is enabled, so a single mysql_query()/mysql_real_query()
-// may leave several result sets pending. Every one must be consumed or the next
-// command on this connection fails with CR_COMMANDS_OUT_OF_SYNC.
+// Since CLIENT_MULTI_STATEMENTS is enabled, we need to drain results to
+// prevent CR_COMMANDS_OUT_OF_SYNC in case multiple statements were used. This
+// function is called on the _execute path, where no result set is expected.
+// The purpose here is to drain protocol result packets off the wire, not to
+// read result sets: non-query statements carry none (store_result -> NULL); we
+// still store+free defensively in case a statement (e.g. a CALL) returns rows.
 static void _drainResults(T C) {
         while (mysql_more_results(C->db)) {
                 if (mysql_next_result(C->db) != 0)
