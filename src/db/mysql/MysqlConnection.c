@@ -208,6 +208,23 @@ static bool _prepare(T C, const char *sql, int len, MYSQL_STMT **stmt) {
 }
 
 
+// Since CLIENT_MULTI_STATEMENTS is enabled, we need to drain results to
+// prevent CR_COMMANDS_OUT_OF_SYNC in case multiple statements were used. This
+// function is called on the _execute path, where no result set is expected.
+// The purpose here is to drain protocol result packets off the wire, not to
+// read result sets: non-query statements carry none (store_result -> NULL); we
+// still store+free defensively in case a statement (e.g. a CALL) returns rows.
+static void _drainResults(T C) {
+        while (mysql_more_results(C->db)) {
+                if (mysql_next_result(C->db) != 0)
+                        break; // -1: no more results, or >0: a later statement failed
+                MYSQL_RES *result = mysql_store_result(C->db);
+                if (result)
+                        mysql_free_result(result);
+        }
+}
+
+
 /* -------------------------------------------------------- Delegate Methods */
 
 
@@ -246,23 +263,6 @@ static void _setQueryTimeout(T C, int ms) {
         StringBuffer_set(C->sb, "SET SESSION MAX_EXECUTION_TIME=%d;", ms);
         C->lastError = mysql_query(C->db, StringBuffer_toString(C->sb));
 #endif
-}
-
-
-// Since CLIENT_MULTI_STATEMENTS is enabled, we need to drain results to
-// prevent CR_COMMANDS_OUT_OF_SYNC in case multiple statements were used. This
-// function is called on the _execute path, where no result set is expected.
-// The purpose here is to drain protocol result packets off the wire, not to
-// read result sets: non-query statements carry none (store_result -> NULL); we
-// still store+free defensively in case a statement (e.g. a CALL) returns rows.
-static void _drainResults(T C) {
-        while (mysql_more_results(C->db)) {
-                if (mysql_next_result(C->db) != 0)
-                        break; // -1: no more results, or >0: a later statement failed
-                MYSQL_RES *result = mysql_store_result(C->db);
-                if (result)
-                        mysql_free_result(result);
-        }
 }
 
 
