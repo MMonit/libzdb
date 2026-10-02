@@ -79,14 +79,17 @@ static inline void _append(T S, const char *s, va_list ap) {
 }
 
 
-// Replace all occurences of ? in this string buffer with prefix[1..99]
+// Replace all occurences of ? in this string buffer with prefix[1..200]
 static int _prepare(T S, char prefix) {
         int n, i;
         for (n = i = 0; S->buffer[i]; i++) if (S->buffer[i] == '?') n++;
-        if (n > 99)
-                THROW(SQLException, "Max 99 parameters are allowed in a prepared statement. Found %d parameters in statement", n);
+        if (n > 200)
+                THROW(SQLException, "Max 200 parameters are allowed in a prepared statement. Found %d parameters in statement", n);
         else if (n) {
-                int extra = (n <= 9) ? n : (2 * n - 9);
+                // Extra bytes needed: each '?' becomes prefix + the decimal index,
+                // so a 1/2/3-digit index (1..9 / 10..99 / 100..200) adds 1/2/3 bytes.
+                int extra = 0;
+                for (int k = 1; k <= n; k++) extra += (k < 10) ? 1 : (k < 100) ? 2 : 3;
                 if (extra >= INT_MAX - S->used)
                         THROW(AssertException, "StringBuffer: content exceeds the maximum size of %d bytes", INT_MAX);
                 int new_used = S->used + extra;
@@ -100,12 +103,13 @@ static int _prepare(T S, char prefix) {
                 int j = n;
                 while (r >= 0) {
                         if (S->buffer[r] == '?') {
-                                if (j >= 10) {
-                                        S->buffer[w--] = '0' + (j % 10);
-                                        S->buffer[w--] = '0' + (j / 10);
-                                } else {
-                                        S->buffer[w--] = '0' + j;
-                                }
+                                // Write the index digits least-significant-first (w moves backwards),
+                                // supporting 1..200 (up to three digits), then the prefix.
+                                S->buffer[w--] = '0' + (j % 10);
+                                if (j >= 10)
+                                        S->buffer[w--] = '0' + ((j / 10) % 10);
+                                if (j >= 100)
+                                        S->buffer[w--] = '0' + (j / 100);
                                 S->buffer[w--] = prefix;
                                 j--;
                         } else {

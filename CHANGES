@@ -1,6 +1,13 @@
-                        CHANGES version 3.6.0
+                        CHANGES version 3.7.0
 
               This file summarizes changes made since 1.0
+
+Version 3.7.0
+-------------
+
+* New: Increase the prepared statements parameter limit from 99 to 200
+  for PostgreSQL and Oracle.
+
 
 Version 3.6.0
 -------------

@@ -146,7 +146,7 @@ const char *StringBuffer_toString(T S);
  * </pre>
  * @param S StringBuffer object
  * @return The number of replacements that took place
- * @exception SQLException If there are more than 99 wild card '?' parameters
+ * @exception SQLException If there are more than 200 wild card '?' parameters
  */
 int StringBuffer_prepare4postgres(T S);
 
@@ -160,7 +160,7 @@ int StringBuffer_prepare4postgres(T S);
  * </pre>
  * @param S StringBuffer object
  * @return The number of replacements that took place
- * @exception SQLException If there are more than 99 wild card '?' parameters
+ * @exception SQLException If there are more than 200 wild card '?' parameters
  */
 int StringBuffer_prepare4oracle(T S);
 
