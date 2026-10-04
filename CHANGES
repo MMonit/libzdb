@@ -7,6 +7,16 @@ Version 3.7.0
 
 * New: Increase the prepared statements parameter limit from 99 to 200
   for PostgreSQL and Oracle.
+* Fixed: Keep PreparedStatements on Connection_rollback() so they can be
+  reused; executing one after a rollback used freed memory. Only
+  Connection_close() and Connection_clear() release prepared statements,
+  and a rollback no longer resets the query timeout, max rows or fetch
+  size.
+* Fixed: PostgreSQL: Connection_commit() reported success for a
+  transaction that a failed statement had aborted. PostgreSQL rolls such
+  a transaction back and answers COMMIT with ROLLBACK and no error, so its
+  changes were lost silently. Connection_commit() now throws an
+  SQLException with SQLSTATE 25P02.
 
 
 Version 3.6.0

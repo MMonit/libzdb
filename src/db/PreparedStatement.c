@@ -82,6 +82,12 @@ void PreparedStatement_free(T *P) {
 }
 
 
+void PreparedStatement_clearResultSet(T P) {
+        assert(P);
+        _clearResultSet(P);
+}
+
+
 /* ------------------------------------------------------------ Parameters */
 
 

@@ -83,6 +83,7 @@ struct T {
         StringBuffer_T sb;
         Connection_T delegator;
 	ExecStatusType lastError;
+        bool rolledBack; // The last COMMIT found the transaction aborted and rolled it back
 };
 static _Atomic(uint32_t) kStatementID = 0;
 extern const struct Rop_T postgresqlrops;
@@ -247,7 +248,9 @@ static bool _commit(T C) {
         PQclear(C->res);
         C->res = PQexec(C->db, "COMMIT TRANSACTION;");
         C->lastError = PQresultStatus(C->res);
-        return (C->lastError == PGRES_COMMAND_OK);
+        // A failed statement aborts the transaction, and COMMIT then rolls it back, answering with the ROLLBACK tag and no error
+        C->rolledBack = (C->lastError == PGRES_COMMAND_OK && Str_isEqual(PQcmdStatus(C->res), "ROLLBACK"));
+        return (C->lastError == PGRES_COMMAND_OK && ! C->rolledBack);
 }
 
 
@@ -256,6 +259,7 @@ static bool _rollback(T C) {
         PQclear(C->res);
         C->res = PQexec(C->db, "ROLLBACK TRANSACTION;");
         C->lastError = PQresultStatus(C->res);
+        C->rolledBack = false;
         return (C->lastError == PGRES_COMMAND_OK);
 }
 
@@ -324,12 +328,16 @@ static PreparedStatement_T _prepareStatement(T C, const char *sql, va_list ap) {
 
 static const char *_getLastError(T C) {
 	assert(C);
+        if (C->rolledBack && C->lastError == PGRES_COMMAND_OK)
+                return "COMMIT failed -- the transaction was aborted by an earlier error and has been rolled back";
         return _getSQLErrorMessage(C->res);
 }
 
 
 static int _getLastErrorCode(T C) {
         assert(C);
+        if (C->rolledBack && C->lastError == PGRES_COMMAND_OK)
+                return SQLState_toInt("25P02"); // in_failed_sql_transaction
         // Return SQLSTATE if available, otherwise 0
         // We intentionally do NOT mix in PQresultStatus codes
         return _getSQLStateErrorCode(C->res);

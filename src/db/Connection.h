@@ -396,7 +396,8 @@ bool Connection_inTransaction(T C);
  *
  * Makes all changes made since the previous commit/rollback permanent
  * and releases any database locks currently held by this Connection
- * object.
+ * object. On PostgreSQL a failed statement aborts the transaction, and
+ * committing it throws an SQLException while the transaction is rolled back.
  *
  * @param C A Connection object
  * @exception SQLException If a database error occurs
@@ -409,9 +410,9 @@ void Connection_commit(T C);
  * @brief Rolls back the current transaction.
  *
  * Undoes all changes made in the current transaction and releases any
- * database locks currently held by this Connection object. This method
- * will first call Connection_clear() before performing the rollback to
- * clear any statements in progress such as selects.
+ * database locks currently held by this Connection object. Any ResultSet
+ * in progress, such as from a select, is closed before the rollback.
+ * PreparedStatements stay valid and can be executed again.
  *
  * @param C A Connection object
  * @exception SQLException If a database error occurs

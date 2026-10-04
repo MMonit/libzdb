@@ -296,8 +296,11 @@ void Connection_commit(T C) {
 void Connection_rollback(T C) {
         assert(C);
         if (C->inTransaction) {
-                // Clear any pending resultset statements first
-                Connection_clear(C);
+                // Close any ResultSet in progress first. PreparedStatements stay valid until the Connection is returned to the pool
+                if (C->resultSet)
+                        ResultSet_free(&C->resultSet);
+                for (int i = 0; i < Vector_size(C->prepared); i++)
+                        PreparedStatement_clearResultSet(Vector_get(C->prepared, i));
                 C->inTransaction = 0;
         }
         // Even if we are not in a transaction, call the delegate anyway and propagate any errors

@@ -181,6 +181,27 @@ static void testPool(const char *testURL) {
                         Connection_execute(con, "drop table if exists fk_parent;");
                         printf("success\n");
                 }
+                // Regression (PostgreSQL): a failed statement aborts the transaction, and
+                // COMMIT then rolls it back, answering with the ROLLBACK tag and no error.
+                // Connection_commit() reported success, so the changes were lost silently
+                if (ConnectionPool_getType(pool) == CONNECTIONPOOL_POSTGRESQL) {
+                        printf("\tResult: check commit of an aborted transaction throws..");
+                        Connection_beginTransaction(con);
+                        Connection_execute(con, "update zild_t set name = 'Rolled back' where id = 1;");
+                        TRY Connection_execute(con, "insert into zild_t (id) values (1);"); ELSE END_TRY; // duplicate key
+                        volatile int threw = 0;
+                        TRY {
+                                Connection_commit(con);
+                        } CATCH(SQLException) {
+                                threw = Exception_frame.errorCode == SQLState_toInt("25P02");
+                        } END_TRY;
+                        assert(threw); // before the fix the commit reported success
+                        Connection_rollback(con);
+                        ResultSet_T r = Connection_executeQuery(con, "select name from zild_t where id = 1;");
+                        assert(ResultSet_next(r));
+                        assert(Str_isEqual(ResultSet_getString(r, 1), "Fry")); // the update was rolled back
+                        printf("success\n");
+                }
                 // Regression (PostgreSQL): a password containing a single quote must be
                 // escaped in the libpq conninfo string, otherwise the connection string is
                 // malformed (or a crafted value could inject conninfo parameters). Create a
@@ -267,6 +288,25 @@ static void testPool(const char *testURL) {
                 PreparedStatement_setInt(pre, 2, i + 1);
                 PreparedStatement_execute(pre);
                 printf("\tResult: prepared statement successfully executed\n");
+                // Regression: a rollback freed every PreparedStatement on the Connection,
+                // though they are valid until the Connection is returned to the pool. It
+                // must close the ResultSet in progress and leave both statements usable
+                printf("\tResult: check prepared statements survive a rollback..");
+                PreparedStatement_T q = Connection_prepareStatement(con, "select id from zild_t where id < ?");
+                PreparedStatement_setInt(q, 1, 5);
+                Connection_beginTransaction(con);
+                PreparedStatement_setBlob(pre, 1, "rollback", 9);
+                PreparedStatement_setInt(pre, 2, 2);
+                PreparedStatement_execute(pre);
+                ResultSet_T r = PreparedStatement_executeQuery(q);
+                assert(ResultSet_next(r));
+                Connection_rollback(con);
+                r = PreparedStatement_executeQuery(q);
+                assert(ResultSet_next(r));
+                PreparedStatement_setNull(pre, 1);
+                PreparedStatement_setInt(pre, 2, 5);
+                PreparedStatement_execute(pre);
+                printf("success\n");
                 Connection_close(con);
         }
         printf("=> Test5: OK\n\n");

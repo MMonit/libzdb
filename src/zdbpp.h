@@ -1521,8 +1521,8 @@ namespace zdb {
         /**
          * @brief Rolls back the current transaction.
          *
-         * This method will first call clear() before performing the rollback to
-         * clear any statements in progress such as selects.
+         * Any ResultSet in progress, such as from a select, is closed before the
+         * rollback. PreparedStatements stay valid and can be executed again.
          *
          * @throws sql_exception If a database error occurs.
          */

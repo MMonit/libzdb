@@ -153,6 +153,13 @@ T PreparedStatement_new(PreparedStatementDelegate_T D, Pop_T op) __attribute__ (
  */
 void PreparedStatement_free(T *P) __attribute__ ((visibility("hidden")));
 
+
+/**
+ * @brief Close the ResultSet of this PreparedStatement, if any.
+ * @param P A PreparedStatement object
+ */
+void PreparedStatement_clearResultSet(T P) __attribute__ ((visibility("hidden")));
+
 //>> End Protected methods
 
 /// @name Parameters
