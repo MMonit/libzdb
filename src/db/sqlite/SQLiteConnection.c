@@ -156,9 +156,18 @@ static T _new(Connection_T delegator, char **error) {
         NEW(C);
         C->db = db;
         C->delegator = delegator;
-        // Set a minimal timeout to install a busy_timeout handler. Actual concurrency timeout is handled by
-        // SQLiteAdapter.h methods using either unlock notify or a backoff retry strategy
+        // Install the default busy_timeout handler. With shared-cache ON, inter-connection contention
+        // surfaces as SQLITE_LOCKED (resolved via the unlock-notify blocking API), so a minimal
+        // timeout is enough. With shared-cache OFF (WAL), write contention surfaces as SQLITE_BUSY
+        // and needs to be retried.
+        // Either way a 'busy_timeout' URL parameter still overrides this below in _setProperties().
+#if ENABLE_SQLITE_SHARED_CACHE
+        // Default busy_timeout (5ms) for shared-cache builds
         sqlite3_busy_timeout(C->db, kQueryTimeoutDelta);
+#else
+        // Default busy_timeout (300ms) for non-shared-cache (WAL) builds
+        sqlite3_busy_timeout(C->db, 300);
+#endif
         C->sb = StringBuffer_create(STRLEN);
         if (! _setProperties(C, error))
                 _free(&C);

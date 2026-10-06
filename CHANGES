@@ -7,6 +7,13 @@ Version 3.7.0
 
 * New: Increase the prepared statements parameter limit from 99 to 200
   for PostgreSQL and Oracle.
+* New: SQLite: default the connection busy_timeout to 300ms in builds
+  without shared-cache (ENABLE_SQLITE_SHARED_CACHE undefined). Without
+  shared-cache, writer contention surfaces as SQLITE_BUSY, which the
+  blocking API does not retry, so the previous minimal 5ms timeout was too
+  low under WAL concurrency. Shared-cache builds are unchanged (their
+  contention surfaces as SQLITE_LOCKED and is handled by unlock-notify). A
+  'busy_timeout' parameter in the Connection URL allows one to override this.
 * Fixed: Keep PreparedStatements on Connection_rollback() so they can be
   reused; executing one after a rollback used freed memory. Only
   Connection_close() and Connection_clear() release prepared statements,
