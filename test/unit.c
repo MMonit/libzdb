@@ -1053,7 +1053,6 @@ static void testStringBuffer(void) {
 
 
 int main(void) {
-        Exception_init();
 	testStr();
 	testMem();
 	testTime();

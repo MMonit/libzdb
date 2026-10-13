@@ -664,7 +664,7 @@ namespace zdb {
          * @throws sql_exception If columnIndex is outside the valid range.
          */
         [[nodiscard]] long columnSize(int columnIndex) {
-            except_wrapper(RETURN ResultSet_getColumnSize(t_, columnIndex));
+            except_wrapper(return ResultSet_getColumnSize(t_, columnIndex));
         }
         
         /**
@@ -704,7 +704,7 @@ namespace zdb {
          * @return true if the new current row is valid; false if there are no more rows.
          * @throws sql_exception If a database access error occurs.
          */
-        bool next() { except_wrapper(RETURN ResultSet_next(t_)); }
+        bool next() { except_wrapper(return ResultSet_next(t_)); }
         
         /// @}
         /// @name Columns
@@ -721,7 +721,7 @@ namespace zdb {
          * @throws sql_exception If a database access error occurs or columnIndex is invalid.
          */
         [[nodiscard]] bool isNull(int columnIndex) {
-            except_wrapper(RETURN ResultSet_isnull(t_, columnIndex));
+            except_wrapper(return ResultSet_isnull(t_, columnIndex));
         }
         
         /**
@@ -735,7 +735,7 @@ namespace zdb {
          * @throws sql_exception If a database access error occurs or columnName does not exist.
          */
         [[nodiscard]] bool isNull(const std::string& columnName) {
-            except_wrapper(RETURN ResultSet_isnullByName(t_, columnName.c_str()));
+            except_wrapper(return ResultSet_isnullByName(t_, columnName.c_str()));
         }
         
         /**
@@ -749,7 +749,7 @@ namespace zdb {
          * @throws sql_exception If a database access error occurs or columnIndex is invalid.
          */
         [[nodiscard]] std::optional<std::string_view> getString(int columnIndex) {
-            except_wrapper(RETURN _to_optional(ResultSet_getString(t_, columnIndex)));
+            except_wrapper(return _to_optional(ResultSet_getString(t_, columnIndex)));
         }
         
         /**
@@ -763,7 +763,7 @@ namespace zdb {
          * @throws sql_exception If a database access error occurs or columnName does not exist.
          */
         [[nodiscard]] std::optional<std::string_view> getString(const std::string& columnName) {
-            except_wrapper(RETURN _to_optional(ResultSet_getStringByName(t_, columnName.c_str())));
+            except_wrapper(return _to_optional(ResultSet_getStringByName(t_, columnName.c_str())));
         }
         
         /**
@@ -773,7 +773,7 @@ namespace zdb {
          * @throws sql_exception If a database error occurs, columnIndex is invalid or value is NaN.
          */
         [[nodiscard]] int getInt(int columnIndex) {
-            except_wrapper(RETURN ResultSet_getInt(t_, columnIndex));
+            except_wrapper(return ResultSet_getInt(t_, columnIndex));
         }
         
         /**
@@ -783,7 +783,7 @@ namespace zdb {
          * @throws sql_exception If a database error occurs, columnName is invalid or value is NaN.
          */
         [[nodiscard]] int getInt(const std::string& columnName) {
-            except_wrapper(RETURN ResultSet_getIntByName(t_, columnName.c_str()));
+            except_wrapper(return ResultSet_getIntByName(t_, columnName.c_str()));
         }
         
         /**
@@ -793,7 +793,7 @@ namespace zdb {
          * @throws sql_exception If a database error occurs, columnIndex is invalid or value is NaN.
          */
         [[nodiscard]] long long getLLong(int columnIndex) {
-            except_wrapper(RETURN ResultSet_getLLong(t_, columnIndex));
+            except_wrapper(return ResultSet_getLLong(t_, columnIndex));
         }
         
         /**
@@ -803,7 +803,7 @@ namespace zdb {
          * @throws sql_exception If a database error occurs, columnName is invalid or value is NaN.
          */
         [[nodiscard]] long long getLLong(const std::string& columnName) {
-            except_wrapper(RETURN ResultSet_getLLongByName(t_, columnName.c_str()));
+            except_wrapper(return ResultSet_getLLongByName(t_, columnName.c_str()));
         }
         
         /**
@@ -813,7 +813,7 @@ namespace zdb {
          * @throws sql_exception If a database error occurs, columnIndex is invalid or value is NaN.
          */
         [[nodiscard]] double getDouble(int columnIndex) {
-            except_wrapper(RETURN ResultSet_getDouble(t_, columnIndex));
+            except_wrapper(return ResultSet_getDouble(t_, columnIndex));
         }
         
         /**
@@ -823,7 +823,7 @@ namespace zdb {
          * @throws sql_exception If a database error occurs, columnName is invalid or value is NaN.
          */
         [[nodiscard]] double getDouble(const std::string& columnName) {
-            except_wrapper(RETURN ResultSet_getDoubleByName(t_, columnName.c_str()));
+            except_wrapper(return ResultSet_getDoubleByName(t_, columnName.c_str()));
         }
         
         /**
@@ -893,7 +893,7 @@ namespace zdb {
          *         the valid range or if the column value cannot be converted to a valid timestamp.
          */
         [[nodiscard]] time_t getTimestamp(int columnIndex) {
-            except_wrapper(RETURN ResultSet_getTimestamp(t_, columnIndex));
+            except_wrapper(return ResultSet_getTimestamp(t_, columnIndex));
         }
         
         /**
@@ -919,7 +919,7 @@ namespace zdb {
          *         or if the column value cannot be converted to a valid timestamp.
          */
         [[nodiscard]] time_t getTimestamp(const std::string& columnName) {
-            except_wrapper(RETURN ResultSet_getTimestampByName(t_, columnName.c_str()));
+            except_wrapper(return ResultSet_getTimestampByName(t_, columnName.c_str()));
         }
         
         /**
@@ -954,7 +954,7 @@ namespace zdb {
          *         to a valid SQL Date, Time or DateTime type.
          */
         [[nodiscard]] tm getDateTime(int columnIndex) {
-            except_wrapper(RETURN ResultSet_getDateTime(t_, columnIndex));
+            except_wrapper(return ResultSet_getDateTime(t_, columnIndex));
         }
         
         /**
@@ -989,7 +989,7 @@ namespace zdb {
          *         Date, Time or DateTime type.
          */
         [[nodiscard]] tm getDateTime(const std::string& columnName) {
-            except_wrapper(RETURN ResultSet_getDateTimeByName(t_, columnName.c_str()));
+            except_wrapper(return ResultSet_getDateTimeByName(t_, columnName.c_str()));
         }
 
         /// @}
@@ -1277,7 +1277,7 @@ namespace zdb {
         [[nodiscard]] ResultSet executeQuery() {
             except_wrapper(
                            ResultSet_T r = PreparedStatement_executeQuery(t_);
-                           RETURN ResultSet(r);
+                           return ResultSet(r);
                            );
         }
         
@@ -1638,7 +1638,7 @@ namespace zdb {
             if constexpr (sizeof...(Args) == 0) {
                 except_wrapper(
                                ResultSet_T r = Connection_executeQuery(t_, "%s", sql.c_str());
-                               RETURN ResultSet(r);
+                               return ResultSet(r);
                                );
             } else {
                 PreparedStatement p(this->prepareStatement(sql));
@@ -1670,7 +1670,7 @@ namespace zdb {
         [[nodiscard]] PreparedStatement prepareStatement(const std::string& sql) {
             except_wrapper(
                            PreparedStatement_T p = Connection_prepareStatement(t_, "%s", sql.c_str());
-                           RETURN PreparedStatement(p);
+                           return PreparedStatement(p);
                            );
         }
         
@@ -1767,9 +1767,10 @@ namespace zdb {
      * - `serialized=true` - Make SQLite switch to serialized mode
      *   if value is true, otherwise multi-thread mode is used (the default).
      * - `shared-cache=true` - Make SQLite use shared-cache if value is true.
-     *   Using shared cache can significantly reduce database lock errors in
-     *   some scenarios where two or more connections might write to the database.
-     *   It is also recommended to build libsqlite and libzdb with unlock  notify.
+     *   With shared-cache, build libsqlite and libzdb with unlock notify.
+     * - `busy_timeout=200` - Wait up to 200 ms for a lock held by another
+     *   connection before failing with "database is locked". The default
+     *   is 300 ms.
      *
      * Example URL for SQLite (with recommended pragmas):
      * ```
@@ -2074,7 +2075,7 @@ namespace zdb {
         [[nodiscard]] Connection getConnection() {
             except_wrapper(
                            Connection_T c = ConnectionPool_getConnectionOrException(t_);
-                           RETURN Connection(c);
+                           return Connection(c);
                            );
         }
         

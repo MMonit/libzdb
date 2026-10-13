@@ -1183,7 +1183,6 @@ int main(void) {
                     "E.g. oracle://scott:tiger@localhost:1521/servicename\n"
                     "To exit, enter '.' on a single line\n\nConnection URL> ";
         ZBDEBUG = true;
-        Exception_init();
         printf("============> Start Connection Pool Tests\n\n");
         printf("This test will create and drop a table called zild_t in the database\n");
         printf("%s", help);

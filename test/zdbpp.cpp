@@ -197,6 +197,33 @@ static void testException(ConnectionPool& pool) {
         std::cout << "Test failed, did not get exception\n";
         std::exit(1);
     } catch (const sql_exception& e) { }
+
+    // Each getter turns a libzdb error into an sql_exception
+    {
+        Connection con = pool.getConnection();
+        ResultSet r = con.executeQuery("SELECT id FROM zild_t;");
+        assert(r.next());
+        int caught = 0;
+        auto expect = [&caught](auto get) {
+            try { get(); } catch (const sql_exception&) { caught++; }
+        };
+        expect([&r] { (void)r.columnSize(9); });
+        expect([&r] { (void)r.isNull(9); });
+        expect([&r] { (void)r.isNull("x"); });
+        expect([&r] { (void)r.getString(9); });
+        expect([&r] { (void)r.getString("x"); });
+        expect([&r] { (void)r.getInt(9); });
+        expect([&r] { (void)r.getInt("x"); });
+        expect([&r] { (void)r.getLLong(9); });
+        expect([&r] { (void)r.getLLong("x"); });
+        expect([&r] { (void)r.getDouble(9); });
+        expect([&r] { (void)r.getDouble("x"); });
+        expect([&r] { (void)r.getTimestamp(9); });
+        expect([&r] { (void)r.getTimestamp("x"); });
+        expect([&r] { (void)r.getDateTime(9); });
+        expect([&r] { (void)r.getDateTime("x"); });
+        assert(caught == 15);
+    }
 }
 
 static void testAbortHandler(ConnectionPool& pool) {
@@ -206,10 +233,6 @@ static void testAbortHandler(ConnectionPool& pool) {
         abortHandlerCalled = true;
     });
         
-    // Calling Exception_reset() to ensure the call-stack does not
-    // have any Exception_Frame attached so we can do a clean throw
-    Exception_reset();
-
     // Throwing a libzdb exception without a TRY-block will cause the
     // abort handler to be called, iff set.
     THROW(SQLException, "SQLException");

@@ -42,6 +42,15 @@ static void indirectA(void) {
         throwA();
 }
 
+static int returnFromCatch(void) {
+        TRY
+                THROW(A, "A");
+        CATCH(A)
+                RETURN 1;
+        END_TRY;
+        return 0;
+}
+
 /* Throw and catch exceptions and check that we get the expected exception. 
  * If the exception stack is corrupt this should be detected
  */
@@ -172,9 +181,98 @@ static void *thread(void *args) {
         return NULL; 
 }
 
+static Mutex_T stepMutex = PTHREAD_MUTEX_INITIALIZER;
+static Sem_T stepSem = PTHREAD_COND_INITIALIZER;
+static int step = 0;
+static bool caughtB = false;
+
+static void waitFor(int n) {
+        LOCK(stepMutex)
+        {
+                while (step < n)
+                        Sem_wait(stepSem, stepMutex);
+        }
+        END_LOCK;
+}
+
+static void advanceTo(int n) {
+        LOCK(stepMutex)
+        {
+                step = n;
+                Sem_broadcast(stepSem);
+        }
+        END_LOCK;
+}
+
+// A leaves its TRY while B is inside its own, then B throws
+static void *threadA(void *args) {
+        TRY
+                advanceTo(1);
+                waitFor(2);
+        END_TRY;
+        advanceTo(3);
+        return NULL;
+}
+
+static void *threadB(void *args) {
+        waitFor(1);
+        TRY
+                advanceTo(2);
+                waitFor(3);
+                THROW(B, "Thrown in thread B");
+        CATCH(B)
+                caughtB = true;
+        END_TRY;
+        return NULL;
+}
+
+static int fails(void) {
+        THROW(A, "A");
+        return 0;
+}
+
+static int returnThrows(void) {
+        TRY
+                RETURN fails();
+        CATCH(A)
+                return -1;
+        END_TRY;
+        return 0;
+}
+
+static bool finallyRan = false;
+
+static int returnThrowsFinally(void) {
+        TRY
+                RETURN fails();
+        FINALLY
+                finallyRan = true;
+        END_TRY;
+        return 0;
+}
+
+static int returnNested(void) {
+        TRY
+                TRY
+                        return 7;
+                END_TRY;
+        END_TRY;
+        return 0;
+}
+
+static int breakOut(void) {
+        volatile int n = 0;
+        for (int i = 0; i < 3; i++) {
+                TRY
+                        n++;
+                        break;
+                END_TRY;
+        }
+        return n;
+}
+
 
 int main(void) {
-        Exception_init();
         printf("============> Start Exeption Tests\n\n");
         
         printf("=> Test1: TRY-CATCH\n");
@@ -326,6 +424,17 @@ int main(void) {
         }
         printf("=> Test12: OK\n\n");
         
+        printf("=> Test13: RETURN in a CATCH block\n");
+        {
+                TRY
+                        assert(returnFromCatch() == 1);
+                        THROW(B, "B");
+                CATCH(B)
+                        printf("\tResult: Ok\n");
+                END_TRY;
+        }
+        printf("=> Test13: OK\n\n");
+
         printf("=> Test14: Double interpretation of format strings during RETHROW\n");
         {
                 TRY
@@ -357,6 +466,69 @@ int main(void) {
         }
         printf("=> Test14: OK\n\n");
         
+        printf("=> Test15: Frames of two threads that do not nest\n");
+        {
+                Thread_T a, b;
+                Thread_create(a, threadA, NULL);
+                Thread_create(b, threadB, NULL);
+                Thread_join(a);
+                Thread_join(b);
+                assert(caughtB);
+        }
+        printf("=> Test15: OK\n\n");
+
+        printf("=> Test16: A throw in RETURN's expression reaches its own CATCH\n");
+        {
+                assert(returnThrows() == -1);
+        }
+        printf("=> Test16: OK\n\n");
+
+        printf("=> Test17: A throw in RETURN's expression reaches its own FINALLY, then the caller\n");
+        {
+                TRY
+                        returnThrowsFinally();
+                        assert(false); // Should not be reached
+                CATCH(A)
+                        assert(finallyRan);
+                END_TRY;
+        }
+        printf("=> Test17: OK\n\n");
+
+        printf("=> Test18: return from nested TRY statements pops both frames\n");
+        {
+                volatile bool popped = false;
+                TRY
+                        assert(returnNested() == 7);
+                        popped = Exception_Stack == &Exception_frame;
+                END_TRY;
+                assert(popped);
+        }
+        printf("=> Test18: OK\n\n");
+
+        printf("=> Test19: break leaves the TRY statement, not the loop, and pops its frame\n");
+        {
+                volatile bool popped = false;
+                TRY
+                        assert(breakOut() == 3);
+                        popped = Exception_Stack == &Exception_frame;
+                END_TRY;
+                assert(popped);
+        }
+        printf("=> Test19: OK\n\n");
+
+        printf("=> Test20: A throw out of a nested TRY leaves the outer frame popped\n");
+        {
+                // Fails if the jump ran the inner frame's cleanup on its way out
+                TRY
+                        TRY
+                                THROW(A, "A");
+                        END_TRY;
+                CATCH(A)
+                        assert(Exception_Stack == Exception_frame.prev);
+                END_TRY;
+        }
+        printf("=> Test20: OK\n\n");
+
         printf("============> Exception Tests: OK\n\n");
 
         return 0;

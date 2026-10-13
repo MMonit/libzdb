@@ -37,8 +37,6 @@
 #define Thread_T pthread_t
 #define Sem_T   pthread_cond_t
 #define Mutex_T pthread_mutex_t
-#define Once_T pthread_once_t
-#define ThreadData_T pthread_key_t
 #define _trapper(F) do { int status=(F); \
         if (status!=0 && status!=ETIMEDOUT) \
                 Exception_vthrow(&AssertException, 0, __func__, __FILE__, __LINE__,\
@@ -50,7 +48,6 @@
 #define Thread_detach(thread) _trapper(pthread_detach(thread))
 #define Thread_cancel(thread) _trapper(pthread_cancel(thread))
 #define Thread_join(thread) _trapper(pthread_join(thread, NULL))
-#define Thread_once(control, ctor) pthread_once(&(control), ctor)
 #define Sem_init(sem) _trapper(pthread_cond_init(&sem, NULL))
 #define Sem_wait(sem, mutex) _trapper(pthread_cond_wait(&sem, &mutex))
 #define Sem_signal(sem) _trapper(pthread_cond_signal(&sem))
@@ -65,8 +62,5 @@
 #define LOCK(mutex) do { Mutex_T *_yymutex=&(mutex); \
         _trapper(pthread_mutex_lock(_yymutex));
 #define END_LOCK _trapper(pthread_mutex_unlock(_yymutex)); } while (0)
-#define ThreadData_create(key, dtor) _trapper(pthread_key_create(&(key), dtor))
-#define ThreadData_set(key, value) pthread_setspecific((key), (value))
-#define ThreadData_get(key) pthread_getspecific((key))
 
 #endif

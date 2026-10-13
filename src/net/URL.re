@@ -317,7 +317,6 @@ static T _ctor(uchar_t *data) {
 T URL_new(const char *url) {
         if (STR_UNDEF(url))
                 return NULL;
-        Exception_init();
         return _ctor((uchar_t*)Str_dup(url));
 }
 
@@ -325,7 +324,6 @@ T URL_new(const char *url) {
 T URL_create(const char *url, ...) {
         if (STR_UNDEF(url))
                 return NULL;
-        Exception_init();
 	va_list ap;
         va_start(ap, url);
 	T U = _ctor((uchar_t*)Str_vcat(url, ap));

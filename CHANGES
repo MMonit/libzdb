@@ -7,23 +7,33 @@ Version 3.7.0
 
 * New: Increase the prepared statements parameter limit from 99 to 200
   for PostgreSQL and Oracle.
-* New: SQLite: default the connection busy_timeout to 300ms in builds
-  without shared-cache (ENABLE_SQLITE_SHARED_CACHE undefined). Without
-  shared-cache, writer contention surfaces as SQLITE_BUSY, which the
-  blocking API does not retry, so the previous minimal 5ms timeout was too
-  low under WAL concurrency. Shared-cache builds are unchanged (their
-  contention surfaces as SQLITE_LOCKED and is handled by unlock-notify). A
-  'busy_timeout' parameter in the Connection URL allows one to override this.
+* New: The exception stack is changed from a pthread key to a C11
+  thread-local variable, for improved performance.
+* New: A regular C return statement can now be used inside a TRY block
+  to return early. Previously, the RETURN macro had to be used for this
+  purpose. This uses a GCC and Clang extension, so code using TRY must
+  be compiled with GCC or Clang.
 * Fixed: Keep PreparedStatements on Connection_rollback() so they can be
   reused; executing one after a rollback used freed memory. Only
   Connection_close() and Connection_clear() release prepared statements,
   and a rollback no longer resets the query timeout, max rows or fetch
   size.
+* Fixed: SQLite: "database is locked" errors when several connections
+  write at the same time without shared-cache, as in WAL mode, in
+  builds with unlock notify. A connection now waits up to 300 ms (was
+  5 ms) for another connection's write lock; the busy_timeout URL
+  parameter changes this timeout.
+* Removed: The --enable-sqlite-shared-cache configure option. Shared-cache
+  can still be enabled per connection with the URL parameter
+  shared-cache=true.
 * Fixed: PostgreSQL: Connection_commit() reported success for a
   transaction that a failed statement had aborted. PostgreSQL rolls such
   a transaction back and answers COMMIT with ROLLBACK and no error, so its
   changes were lost silently. Connection_commit() now throws an
   SQLException with SQLSTATE 25P02.
+* Fixed: C++: an error in ResultSet::next() or in a getter such as
+  getString(), getInt() or isNull() called the abort handler instead
+  of throwing sql_exception.
 
 
 Version 3.6.0

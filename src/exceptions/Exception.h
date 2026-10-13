@@ -26,7 +26,6 @@
 #ifndef EXCEPTION_INCLUDED
 #define EXCEPTION_INCLUDED
 #include <setjmp.h>
-#include <pthread.h>
 
 /**
  * @brief An **Exception** indicates an error condition from which recovery may
@@ -107,12 +106,11 @@
  * was thrown and the exception will automatically propagate up the call stack
  * afterwards.
  *
- * Finally, the RETURN statement, defined in this interface, must be used
- * instead of C return statements inside a try block. If any of the
- * statements in a try block must do a return, they **must** do so with
- * this macro instead of the usual C return statement. Note that RETURN is
- * just a wrapper around return, and subsequent CATCH, ELSE, or FINALLY blocks
- * are not executed if RETURN is called.
+ * A TRY statement can be left from any of its blocks with return, break or
+ * goto, and its handler is dismantled on the way out. The blocks after the
+ * one left do not run, FINALLY included, and an exception not yet handled is
+ * not rethrown. break and continue leave the TRY statement itself, not a loop
+ * around it. No goto or case label may jump into a TRY statement.
  *
  * ## Recommended: Use TRY-ELSE
  *
@@ -286,12 +284,12 @@
  *
  * ## Volatile and assignment inside a try-block
  *
- * A variable declared outside a try-block and assigned a value inside said
- * block should be declared `volatile` if the variable will be
- * accessed from an exception handler. Otherwise the compiler will/may
- * optimize away the value set in the try-block and the handler will not see
- * the new value. Declaring the variable volatile is only necessary
- * if the variable is to be used inside a CATCH, ELSE, or FINALLY block. Example:
+ * A local variable declared outside a try-block and assigned a value inside
+ * said block must be declared `volatile` if it is read after an exception
+ * was thrown, in a CATCH, ELSE or FINALLY block or after END_TRY. Otherwise
+ * the compiler may keep the value it had before the try-block. Only the
+ * function's own local variables are affected, not a global, a static or an
+ * object reached through a pointer the function was given. Example:
  * ```c
  * volatile int i = 0;
  * TRY
@@ -304,13 +302,13 @@
  *      assert(i == 1); // Unless declared volatile i could be 0 here
  * }
  * END_TRY;
- * assert(i == 1); // i will be 1 here regardless if it is declared volatile or not
+ * assert(i == 1); // and here
  * ```
  *
  *
  * ## Thread-safe
  *
- * The Exception stack is stored in a thread-specific variable so Exceptions
+ * The Exception stack is stored in a thread-local variable so Exceptions
  * are made thread-safe. *This means that Exceptions are thread local and an
  * Exception thrown in one thread cannot be caught in another thread*.
  * This also means that clients must handle Exceptions per thread and cannot
@@ -350,13 +348,20 @@ struct Exception_Frame {
         char message[EXCEPTION_MESSAGE_LENGTH];
 };
 enum { Exception_entered=0, Exception_thrown, Exception_handled, Exception_finalized };
-extern pthread_key_t Exception_stack;
-void Exception_init(void);
-void Exception_reset(void);
+#ifdef __cplusplus
+extern constinit thread_local Exception_Frame *Exception_Stack;
+#else
+extern _Thread_local Exception_Frame *Exception_Stack;
+#endif
 void Exception_vthrow(const T *e, int errorCode, const char *func, const char *file, int line, const char *cause, ...) CLANG_ANALYZER_NORETURN;
 void Exception_throw(const T *e, int errorCode, const char *func, const char *file, int line, const char *message) CLANG_ANALYZER_NORETURN;
 
-#define pop_exception_stack pthread_setspecific(Exception_stack, ((Exception_Frame*)pthread_getspecific(Exception_stack))->prev)
+/* Pops the frame however its TRY statement is left. siglongjmp runs no
+   cleanups, so Exception_throw() pops before it jumps. */
+static inline void Exception_leave(Exception_Frame *frame) {
+        Exception_Stack = frame->prev;
+}
+#define pop_exception_stack (Exception_Stack = Exception_frame.prev)
 /** @endcond */
 
 
@@ -392,11 +397,11 @@ void Exception_throw(const T *e, int errorCode, const char *func, const char *fi
 
 
 /**
- * Clients **must** use this macro instead of C return statements
- * inside a try-block
+ * The same as return, which may leave a TRY statement from any of its blocks
+ * @deprecated Use return; RETURN is kept so existing code compiles
  * @hideinitializer
  */
-#define RETURN switch((pop_exception_stack,0)) default:return
+#define RETURN return
 
 
 /**
@@ -405,10 +410,10 @@ void Exception_throw(const T *e, int errorCode, const char *func, const char *fi
  */
 #define TRY do { \
         volatile int Exception_flag; \
-        Exception_Frame Exception_frame = {}; \
+        Exception_Frame Exception_frame __attribute__((cleanup(Exception_leave))) = {}; \
         Exception_frame.message[0] = 0; \
-        Exception_frame.prev = (Exception_Frame*)pthread_getspecific(Exception_stack); \
-        pthread_setspecific(Exception_stack, &Exception_frame); \
+        Exception_frame.prev = Exception_Stack; \
+        Exception_Stack = &Exception_frame; \
         Exception_flag = sigsetjmp(Exception_frame.env, 0); \
         if (Exception_flag == Exception_entered) {
                 
@@ -420,7 +425,6 @@ void Exception_throw(const T *e, int errorCode, const char *func, const char *fi
  * @hideinitializer
  */
 #define CATCH(e) \
-                if (Exception_flag == Exception_entered) pop_exception_stack; \
         } else if (Exception_frame.exception == &(e)) { \
                 Exception_flag = Exception_handled;
 
@@ -432,7 +436,6 @@ void Exception_throw(const T *e, int errorCode, const char *func, const char *fi
  * @hideinitializer
  */
 #define ELSE \
-                if (Exception_flag == Exception_entered) pop_exception_stack; \
         } else { \
                 Exception_flag = Exception_handled;
 
@@ -443,10 +446,11 @@ void Exception_throw(const T *e, int errorCode, const char *func, const char *fi
  * @hideinitializer
  */
 #define FINALLY \
-                if (Exception_flag == Exception_entered) pop_exception_stack; \
         } { \
-                if (Exception_flag == Exception_entered) \
-                        Exception_flag = Exception_finalized;
+                if (Exception_flag == Exception_entered) { \
+                        pop_exception_stack; \
+                        Exception_flag = Exception_finalized; \
+                }
                 
 
 /**
@@ -454,7 +458,6 @@ void Exception_throw(const T *e, int errorCode, const char *func, const char *fi
  * @hideinitializer
  */
 #define END_TRY \
-                if (Exception_flag == Exception_entered) pop_exception_stack; \
         } if (Exception_flag == Exception_thrown) RETHROW; \
         } while (0)
 

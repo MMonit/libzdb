@@ -28,7 +28,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "Thread.h"
 #include "Exception.h"
 
 
@@ -50,37 +49,11 @@
 #define T Exception_T
 /* Placeholder for systems exceptions. */
 T SQLException = {"SQLException"};
-#ifdef ZILD_PACKAGE_PROTECTED
-#pragma GCC visibility push(hidden)
-#endif
+/* Under ZILD_PACKAGE_PROTECTED, zild defines these, the stack and the throw functions */
+#ifndef ZILD_PACKAGE_PROTECTED
 T AssertException = {"AssertException"};
 T MemoryException = {"MemoryException"};
-#ifdef ZILD_PACKAGE_PROTECTED
-#pragma GCC visibility pop
-#endif
-/* Thread specific Exception stack for libzdb */
-ThreadData_T Exception_stack;
-static Once_T once_control = PTHREAD_ONCE_INIT;
-
-
-/* -------------------------------------------------------- Privat methods */
-
-
-static void init_once(void) { ThreadData_create(Exception_stack, NULL); }
-
-
-/* ----------------------------------------------------- Protected methods */
-
-
-#ifdef PACKAGE_PROTECTED
-#pragma GCC visibility push(hidden)
-#endif
-
-void Exception_init(void) { Thread_once(once_control, init_once); }
-void Exception_reset(void) { ThreadData_set(Exception_stack, NULL); }
-
-#ifdef PACKAGE_PROTECTED
-#pragma GCC visibility pop
+_Thread_local Exception_Frame *Exception_Stack;
 #endif
 
 
@@ -90,7 +63,7 @@ void Exception_reset(void) { ThreadData_set(Exception_stack, NULL); }
 #ifndef ZILD_PACKAGE_PROTECTED
 
 void Exception_throw(const T *e, int errorCode, const char *func, const char *file, int line, const char *message) {
-        Exception_Frame *p = ThreadData_get(Exception_stack);
+        Exception_Frame *p = Exception_Stack;
         assert(e);
         if (p) {
                 p->exception = e;
@@ -100,7 +73,7 @@ void Exception_throw(const T *e, int errorCode, const char *func, const char *fi
                 p->errorCode = errorCode;
                 if (message)
                         Str_copy(p->message, message, EXCEPTION_MESSAGE_LENGTH);
-                pop_exception_stack;
+                Exception_Stack = p->prev;
                 siglongjmp(p->env, Exception_thrown);
         } else if (message) {
                 ABORT("%s: %s\n raised in %s at %s:%d\n", e->name, message,
