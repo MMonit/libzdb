@@ -47,10 +47,11 @@ struct T {
         sqlite3 *db;
         int maxRows;
         int lastError;
+        int busyTimeout;
         StringBuffer_T sb;
         Connection_T delegator;
 };
-static int kQueryTimeoutDelta = 5;
+static int kDefaultBusyTimeout = 300;
 extern const struct Rop_T sqlite3rops;
 extern const struct Pop_T sqlite3pops;
 
@@ -70,20 +71,9 @@ static int _options(URL_T url) {
         } else {
                 options |= SQLITE_OPEN_NOMUTEX;
         }
-        /*
-         * If ENABLE_SQLITE_SHARED_CACHE is defined during compilation,
-         * shared-cache mode is always enabled regardless of the URL parameter.
-         * This is specifically used for builds where shared-cache must always
-         * be on to ensure consistent behavior and prevent database lock issues.
-         * When not defined, the 'shared-cache' URL parameter controls this setting.
-         */
-#if ENABLE_SQLITE_SHARED_CACHE
-        options |= SQLITE_OPEN_SHAREDCACHE;
-#else
         if (Str_parseBool(URL_getParameter(url, "shared-cache"))) {
                 options |= SQLITE_OPEN_SHAREDCACHE;
         }
-#endif
         return options;
 }
 
@@ -120,6 +110,9 @@ static bool _setProperties(T C, char **error) {
                 for (int i = 0; properties[i]; i++) {
                         if (Str_member(properties[i], handled_properties)) {
                                 continue; // Handled in _doConnect, ignore
+                        } else if (Str_isEqual(properties[i], "busy_timeout")) {
+                                C->busyTimeout = Str_parseInt(URL_getParameter(url, properties[i]));
+                                sqlite3_busy_timeout(C->db, C->busyTimeout);
                         } else {
                                 StringBuffer_append(C->sb, "PRAGMA %s = %s; ", properties[i], URL_getParameter(url, properties[i]));
                         }
@@ -156,18 +149,8 @@ static T _new(Connection_T delegator, char **error) {
         NEW(C);
         C->db = db;
         C->delegator = delegator;
-        // Install the default busy_timeout handler. With shared-cache ON, inter-connection contention
-        // surfaces as SQLITE_LOCKED (resolved via the unlock-notify blocking API), so a minimal
-        // timeout is enough. With shared-cache OFF (WAL), write contention surfaces as SQLITE_BUSY
-        // and needs to be retried.
-        // Either way a 'busy_timeout' URL parameter still overrides this below in _setProperties().
-#if ENABLE_SQLITE_SHARED_CACHE
-        // Default busy_timeout (5ms) for shared-cache builds
-        sqlite3_busy_timeout(C->db, kQueryTimeoutDelta);
-#else
-        // Default busy_timeout (300ms) for non-shared-cache (WAL) builds
-        sqlite3_busy_timeout(C->db, 300);
-#endif
+        C->busyTimeout = kDefaultBusyTimeout;
+        sqlite3_busy_timeout(C->db, C->busyTimeout);
         C->sb = StringBuffer_create(STRLEN);
         if (! _setProperties(C, error))
                 _free(&C);
@@ -185,7 +168,7 @@ static bool _ping(T C) {
 static void _setQueryTimeout(T C, int ms) {
         assert(C);
         if (ms <= 0)
-                ms = kQueryTimeoutDelta; // Ensure a minimal timeout to install a busy_timeout handler
+                ms = C->busyTimeout; // Ensure a busy_timeout handler is installed
         sqlite3_busy_timeout(C->db, ms);
 }
 

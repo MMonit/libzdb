@@ -333,20 +333,6 @@ AC_ARG_ENABLE(sqliteunlock,
     ]
 )
 
-AC_ARG_ENABLE([sqlite-shared-cache],
-    AS_HELP_STRING([--enable-sqlite-shared-cache],
-        [Always enable shared-cache mode for SQLite connections. This overrides the
-        URL parameter 'shared-cache' and forces shared-cache on for all connections.
-        CAUTION: This option is intended for specific use cases and should not be
-        enabled by default in general-purpose builds or distributions. Most users
-        should use the URL property shared-cache=true instead.]),
-    [
-        if test "x$enableval" = "xyes" ; then
-            AC_DEFINE([ENABLE_SQLITE_SHARED_CACHE], 1, [Define to 1 to always enable SQLite shared-cache mode])
-        fi
-    ],[]
-)
-
 if test $PROTECT -eq 0 -a $ZILD_PROTECT -eq 0; then
         test_build=1
         UNIT_TEST="test"
