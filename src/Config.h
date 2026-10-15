@@ -39,6 +39,7 @@
 #include <assert.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 #include "Str.h"
 #include "system/Mem.h"
