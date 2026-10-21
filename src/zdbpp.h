@@ -1770,7 +1770,7 @@ namespace zdb {
      *   With shared-cache, build libsqlite and libzdb with unlock notify.
      * - `busy_timeout=200` - Wait up to 200 ms for a lock held by another
      *   connection before failing with "database is locked". The default
-     *   is 300 ms.
+     *   is 500 ms.
      *
      * Example URL for SQLite (with recommended pragmas):
      * ```

@@ -51,7 +51,7 @@ struct T {
         StringBuffer_T sb;
         Connection_T delegator;
 };
-static int kDefaultBusyTimeout = 300;
+static int kDefaultBusyTimeout = 500;
 extern const struct Rop_T sqlite3rops;
 extern const struct Pop_T sqlite3pops;
 

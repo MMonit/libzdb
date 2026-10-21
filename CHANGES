@@ -20,7 +20,7 @@ Version 3.7.0
   size.
 * Fixed: SQLite: "database is locked" errors when several connections
   write at the same time without shared-cache, as in WAL mode, in
-  builds with unlock notify. A connection now waits up to 300 ms (was
+  builds with unlock notify. A connection now waits up to 500 ms (was
   5 ms) for another connection's write lock; the busy_timeout URL
   parameter changes this timeout.
 * Removed: The --enable-sqlite-shared-cache configure option. Shared-cache
