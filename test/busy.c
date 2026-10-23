@@ -216,6 +216,10 @@ static void chunked(void) {
 
 
 static void otherProcess(void) {
+        // No SQLite connection may be open across fork(): the child's own connection to the database would share their lock state, which the
+        // macOS libsqlite3 rejects with "locking protocol". Freeing the pool also stops its reaper thread, so we fork a single-threaded process
+        pool_free(&pool);
+        fflush(stdout); // else the child's exit() on an exception prints our buffered output again
         int fd[2];
         assert(pipe(fd) == 0);
         pid_t pid = fork();
@@ -233,16 +237,19 @@ static void otherProcess(void) {
                 _exit(0);
         }
         close(fd[1]);
+        pool = pool_new();
         sleep_ms(40); // the child has the lock
         Connection_T con = ConnectionPool_getConnection(pool);
         long long took = insert(con);
         long long done = now_us();
         Connection_close(con);
         long long released = 0;
-        assert(read(fd[0], &released, sizeof(released)) == sizeof(released));
+        ssize_t n = read(fd[0], &released, sizeof(released));
         close(fd[0]);
         int status;
         waitpid(pid, &status, 0);
+        assert(WIFEXITED(status) && WEXITSTATUS(status) == 0); // else see the child's exception above
+        assert(n == sizeof(released));
         assert(took >= 0);
         long long lat = done > released ? done - released : 0;
         printf("\tcommit in another process to waiter's success: %6.2f ms\n", lat / 1000.);
