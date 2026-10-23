@@ -51,6 +51,7 @@ struct T {
         int lastError;
         int currentRow;
         int columnCount;
+        int busyTimeout;
         sqlite3_stmt *stmt;
         Connection_T delegator;
 };
@@ -59,7 +60,7 @@ struct T {
 /* ------------------------------------------------------------- Constructor */
 
 
-T SQLiteResultSet_new(Connection_T delegator, sqlite3_stmt *stmt, int keep) {
+T SQLiteResultSet_new(Connection_T delegator, sqlite3_stmt *stmt, int keep, int busyTimeout) {
         T R;
         assert(stmt);
         NEW(R);
@@ -67,6 +68,7 @@ T SQLiteResultSet_new(Connection_T delegator, sqlite3_stmt *stmt, int keep) {
         R->stmt = stmt;
         R->db = sqlite3_db_handle(stmt);
         R->keep = keep;
+        R->busyTimeout = busyTimeout;
         R->maxRows = Connection_getMaxRows(delegator);
         R->columnCount = sqlite3_column_count(R->stmt);
         return R;
@@ -116,7 +118,7 @@ static bool _next(T R) {
                 return false;
         if (R->maxRows && (R->currentRow++ >= R->maxRows))
                 return false;
-        R->lastError = zdb_sqlite3_step(R->stmt);
+        R->lastError = zdb_sqlite3_step(R->stmt, R->busyTimeout);
         if (R->lastError != SQLITE_ROW && R->lastError != SQLITE_DONE) {
 #ifdef HAVE_SQLITE3_ERRSTR
                 THROW_SQL(R->lastError, "sqlite3_step -- %s", sqlite3_errstr(R->lastError));

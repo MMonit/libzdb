@@ -96,7 +96,9 @@
  *
  * A ResultSet returned from PreparedStatement_executeQuery() is valid until
  * the Prepared Statement is executed again or until the Connection is
- * returned to the Connection Pool.
+ * returned to the Connection Pool. On SQLite, read it to the end before
+ * beginning a transaction that writes; otherwise the transaction cannot
+ * wait for the write lock.
  *
  * ## Date and Time
  *

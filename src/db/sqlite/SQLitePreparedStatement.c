@@ -48,6 +48,7 @@
 struct T {
         sqlite3 *db;
         int lastError;
+        int busyTimeout;
         sqlite3_stmt *stmt;
         Connection_T delegator;
 };
@@ -69,13 +70,14 @@ static void _throwOnBindError(T P) {
 /* ------------------------------------------------------------- Constructor */
 
 
-T SQLitePreparedStatement_new(Connection_T delegator, sqlite3_stmt *stmt) {
+T SQLitePreparedStatement_new(Connection_T delegator, sqlite3_stmt *stmt, int busyTimeout) {
         T P;
         assert(stmt);
         NEW(P);
         P->delegator = delegator;
         P->stmt = stmt;
         P->db = sqlite3_db_handle(stmt);
+        P->busyTimeout = busyTimeout;
         P->lastError = SQLITE_OK;
         return P;
 }
@@ -141,7 +143,7 @@ static void _setBlob(T P, int parameterIndex, const void *x, int size) {
 
 static void _execute(T P) {
         assert(P);
-        P->lastError = zdb_sqlite3_step(P->stmt);
+        P->lastError = zdb_sqlite3_step(P->stmt, P->busyTimeout);
         sqlite3_reset(P->stmt);
         switch (P->lastError) {
                 case SQLITE_DONE:
@@ -165,7 +167,7 @@ static void _execute(T P) {
 static ResultSet_T _executeQuery(T P) {
         assert(P);
         if (P->lastError == SQLITE_OK)
-                return ResultSet_new(SQLiteResultSet_new(P->delegator, P->stmt, true), (Rop_T)&sqlite3rops);
+                return ResultSet_new(SQLiteResultSet_new(P->delegator, P->stmt, true, P->busyTimeout), (Rop_T)&sqlite3rops);
         THROW_SQL(sqlite3_extended_errcode(P->db), "Connection [%p] %s", P->delegator, sqlite3_errmsg(P->db));
         return NULL;
 }

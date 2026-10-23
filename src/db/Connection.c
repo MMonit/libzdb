@@ -268,6 +268,8 @@ void Connection_beginTransaction(T C) {
 
 void Connection_beginTransactionType(T C, TRANSACTION_TYPE type) {
         assert(C);
+        if (C->resultSet)
+                ResultSet_free(&C->resultSet);
         if (! C->op->beginTransactionType(C->D, type)) {
                 THROW_SQL(_getLastErrorCode(C), "%s", Connection_getLastError(C));
         }

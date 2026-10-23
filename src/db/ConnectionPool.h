@@ -123,7 +123,8 @@
  *   With shared-cache, build libsqlite and libzdb with unlock notify.
  * - `busy_timeout=200` - Wait up to 200 ms for a lock held by another
  *   connection before failing with "database is locked". The default
- *   is 500 ms.
+ *   is 5000 ms. A transaction that reads before it writes cannot wait
+ *   for the write lock; begin it with TRANSACTION_IMMEDIATE.
  *
  * A URL for connecting to a SQLite database might look like this (with recommended pragmas):
  *

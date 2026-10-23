@@ -24,8 +24,6 @@
 
 #include "Config.h"
 
-#include <stdlib.h>
-
 #include "Thread.h"
 #include "system/Time.h"
 #include "SQLiteAdapter.h"
@@ -56,7 +54,7 @@ static inline void unlock_notify_cb(void **apArg, int nArg) {
 }
 
 
-static inline int wait_for_unlock_notify(sqlite3 *db){
+static inline int wait_for_unlock_notify(sqlite3 *db, long long deadline){
         UnlockNotification_T un;
         un.fired = 0;
         Mutex_init(un.mutex);
@@ -64,10 +62,12 @@ static inline int wait_for_unlock_notify(sqlite3 *db){
         int rc = sqlite3_unlock_notify(db, unlock_notify_cb, (void *)&un);
         assert(rc == SQLITE_LOCKED || rc == SQLITE_OK);
         if (rc == SQLITE_OK) {
+                struct timespec wait = {.tv_sec = deadline / 1000, .tv_nsec = (deadline % 1000) * 1000000};
                 Mutex_lock(un.mutex);
                 if (! un.fired)
-                        Sem_wait(un.cond, un.mutex);
+                        Sem_timeWait(un.cond, un.mutex, wait);
                 Mutex_unlock(un.mutex);
+                sqlite3_unlock_notify(db, NULL, NULL);
         }
         Sem_destroy(un.cond);
         Mutex_destroy(un.mutex);
@@ -77,10 +77,15 @@ static inline int wait_for_unlock_notify(sqlite3 *db){
 
 // MARK: - Blocking API
 
-int zdb_sqlite3_step(sqlite3_stmt *pStmt) {
+int zdb_sqlite3_step(sqlite3_stmt *pStmt, int timeout) {
         int rc;
+        long long deadline = 0;
         while (SQLITE_LOCKED == (rc = sqlite3_step(pStmt))) {
-                rc = wait_for_unlock_notify(sqlite3_db_handle(pStmt));
+                if (! deadline)
+                        deadline = Time_milli() + timeout;
+                else if (Time_milli() >= deadline)
+                        break;
+                rc = wait_for_unlock_notify(sqlite3_db_handle(pStmt), deadline);
                 if (rc != SQLITE_OK)
                         break;
 #if SQLITE_VERSION_NUMBER < 3070000 || defined SQLITE_OMIT_AUTORESET
@@ -91,10 +96,15 @@ int zdb_sqlite3_step(sqlite3_stmt *pStmt) {
 }
 
 
-int zdb_sqlite3_prepare_v2(sqlite3 *db, const char *zSql, int nSql, sqlite3_stmt **ppStmt, const char **pz) {
+int zdb_sqlite3_prepare_v2(sqlite3 *db, const char *zSql, int nSql, sqlite3_stmt **ppStmt, const char **pz, int timeout) {
         int rc;
+        long long deadline = 0;
         while (SQLITE_LOCKED == (rc = sqlite3_prepare_v2(db, zSql, nSql, ppStmt, pz))) {
-                rc = wait_for_unlock_notify(db);
+                if (! deadline)
+                        deadline = Time_milli() + timeout;
+                else if (Time_milli() >= deadline)
+                        break;
+                rc = wait_for_unlock_notify(db, deadline);
                 if (rc != SQLITE_OK)
                         break;
         }
@@ -102,73 +112,22 @@ int zdb_sqlite3_prepare_v2(sqlite3 *db, const char *zSql, int nSql, sqlite3_stmt
 }
 
 
-#else // NOT SQLITEUNLOCK
-
-// Exponential backoff https://en.wikipedia.org/wiki/Exponential_backoff
-// Expected mean backoff time: (2^10 - 1)/2 × slot = 2.6 seconds
-static inline void _backoff(int step) {
-        static int slot = 51 * 100; // µs
-        switch (step) {
-                case 0:
-                        Time_usleep(slot * (random() % 2));
-                        break;
-                case 1:
-                        Time_usleep(slot * (random() % 4));
-                        break;
-                default:
-                        // slot µs * R[0...2^step - 1]
-                        Time_usleep(slot * (random() % (1 << step)));
-                        break;
-        }
-}
-
-// MARK: - Backoff API
-
-// Backoff statement expression
-#define _exec_or_backoff(S) \
-    ({ \
-        int __status; \
-        for (int __i = 0, __steps = 10; __i < __steps; __i++) { \
-            __status = (S); \
-            if ((__status != SQLITE_BUSY) && (__status != SQLITE_LOCKED)) \
-                break; \
-            _backoff(__i); \
-        } \
-        __status; \
-    })
-
-
-int zdb_sqlite3_step(sqlite3_stmt *pStmt) {
-        return _exec_or_backoff(sqlite3_step(pStmt));
-}
-
-
-int zdb_sqlite3_prepare_v2(sqlite3 *db, const char *zSql, int nSql, sqlite3_stmt **ppStmt, const char **pz) {
-        return _exec_or_backoff(sqlite3_prepare_v2(db, zSql, nSql, ppStmt, pz));
-}
-
-
 #endif
 
 
-// The 'sql' may contain multiple ';' separated statements. Execute each statement
-// in 'sql' separately, using the per-statement blocking/backoff primitives above
-// (zdb_sqlite3_prepare_v2/zdb_sqlite3_step). Running the whole string with sqlite3_exec()
-// and retrying it on SQLITE_BUSY/SQLITE_LOCKED would re-run statements that already committed,
-// since each statement in a multi-statement string is its own autocommit transaction.
-int zdb_sqlite3_exec(sqlite3 *db, const char *sql) {
+int zdb_sqlite3_exec(sqlite3 *db, const char *sql, int timeout) {
         int rc = SQLITE_OK;
         const char *tail = sql;
         while (STR_DEF(tail) && rc == SQLITE_OK) {
                 sqlite3_stmt *stmt = NULL;
-                rc = zdb_sqlite3_prepare_v2(db, tail, -1, &stmt, &tail);
+                rc = zdb_sqlite3_prepare_v2(db, tail, -1, &stmt, &tail, timeout);
                 if (rc != SQLITE_OK)
                         break;
                 if (! stmt) // trailing whitespace or a comment-only fragment
                         continue;
                 int step;
                 do {
-                        step = zdb_sqlite3_step(stmt);
+                        step = zdb_sqlite3_step(stmt, timeout);
                 } while (step == SQLITE_ROW);
                 sqlite3_finalize(stmt);
                 if (step != SQLITE_DONE)

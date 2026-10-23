@@ -48,10 +48,12 @@ struct T {
         int maxRows;
         int lastError;
         int busyTimeout;
+        int queryTimeout;
+        long long deadline;
         StringBuffer_T sb;
         Connection_T delegator;
 };
-static int kDefaultBusyTimeout = 500;
+static int kDefaultBusyTimeout = 5000;
 extern const struct Rop_T sqlite3rops;
 extern const struct Pop_T sqlite3pops;
 
@@ -117,7 +119,7 @@ static bool _setProperties(T C, char **error) {
                                 StringBuffer_append(C->sb, "PRAGMA %s = %s; ", properties[i], URL_getParameter(url, properties[i]));
                         }
                 }
-                C->lastError = zdb_sqlite3_exec(C->db, StringBuffer_toString(C->sb));
+                C->lastError = zdb_sqlite3_exec(C->db, StringBuffer_toString(C->sb), C->busyTimeout);
                 if (C->lastError != SQLITE_OK) {
                         *error = Str_cat("unable to set database pragmas -- %s", sqlite3_errmsg(C->db));
                         return false;
@@ -127,13 +129,32 @@ static bool _setProperties(T C, char **error) {
 }
 
 
+#if SQLITE_VERSION_NUMBER >= 3014000
+static int _progress(void *arg) {
+        T C = arg;
+        return C->deadline && Time_milli() > C->deadline;
+}
+
+
+static int _trace(unsigned type, void *arg, void *stmt, void *x) {
+        T C = arg;
+        C->deadline = (type != SQLITE_TRACE_PROFILE && sqlite3_stmt_readonly(stmt)) ? Time_milli() + C->queryTimeout : 0;
+        return 0;
+}
+#endif
+
+
 /* -------------------------------------------------------- Delegate Methods */
 
 
 static void _free(T *C) {
         assert(C && *C);
+#if SQLITE_VERSION_NUMBER >= 3007014
+        sqlite3_close_v2((*C)->db);
+#else
         while (sqlite3_close((*C)->db) == SQLITE_BUSY)
                 Time_usleep(10);
+#endif
         StringBuffer_free(&((*C)->sb));
         FREE(*C);
 }
@@ -160,16 +181,24 @@ static T _new(Connection_T delegator, char **error) {
 
 static bool _ping(T C) {
         assert(C);
-        C->lastError = zdb_sqlite3_exec(C->db, "select 1;");
+        C->lastError = zdb_sqlite3_exec(C->db, "select 1;", C->busyTimeout);
         return (C->lastError == SQLITE_OK);
 }
 
 
 static void _setQueryTimeout(T C, int ms) {
         assert(C);
-        if (ms <= 0)
-                ms = C->busyTimeout; // Ensure a busy_timeout handler is installed
-        sqlite3_busy_timeout(C->db, ms);
+#if SQLITE_VERSION_NUMBER >= 3014000
+        C->queryTimeout = ms;
+        C->deadline = 0;
+        if (ms > 0) {
+                sqlite3_trace_v2(C->db, SQLITE_TRACE_STMT | SQLITE_TRACE_ROW | SQLITE_TRACE_PROFILE, _trace, C);
+                sqlite3_progress_handler(C->db, 1000, _progress, C);
+        } else {
+                sqlite3_trace_v2(C->db, 0, NULL, NULL);
+                sqlite3_progress_handler(C->db, 0, NULL, NULL);
+        }
+#endif
 }
 
 
@@ -186,21 +215,21 @@ static bool _beginTransactionType(T C, TRANSACTION_TYPE type) {
         default:
             sql = "BEGIN TRANSACTION;";
     }
-    C->lastError = zdb_sqlite3_exec(C->db, sql);
+    C->lastError = zdb_sqlite3_exec(C->db, sql, C->busyTimeout);
     return (C->lastError == SQLITE_OK);
 }
 
 
 static bool _commit(T C) {
         assert(C);
-        C->lastError = zdb_sqlite3_exec(C->db, "COMMIT TRANSACTION;");
+        C->lastError = zdb_sqlite3_exec(C->db, "COMMIT TRANSACTION;", C->busyTimeout);
         return (C->lastError == SQLITE_OK);
 }
 
 
 static bool _rollback(T C) {
         assert(C);
-        C->lastError = zdb_sqlite3_exec(C->db, "ROLLBACK TRANSACTION;");
+        C->lastError = zdb_sqlite3_exec(C->db, "ROLLBACK TRANSACTION;", C->busyTimeout);
         return (C->lastError == SQLITE_OK);
 }
 
@@ -223,7 +252,7 @@ static bool _execute(T C, const char *sql, va_list ap) {
         va_copy(ap_copy, ap);
         StringBuffer_vset(C->sb, sql, ap_copy);
         va_end(ap_copy);
-        C->lastError = zdb_sqlite3_exec(C->db, StringBuffer_toString(C->sb));
+        C->lastError = zdb_sqlite3_exec(C->db, StringBuffer_toString(C->sb), C->busyTimeout);
         return (C->lastError == SQLITE_OK);
 }
 
@@ -236,11 +265,11 @@ static ResultSet_T _executeQuery(T C, const char *sql, va_list ap) {
         va_copy(ap_copy, ap);
         StringBuffer_vset(C->sb, sql, ap_copy);
         va_end(ap_copy);
-        C->lastError = zdb_sqlite3_prepare_v2(C->db, StringBuffer_toString(C->sb), StringBuffer_length(C->sb), &stmt, &tail);
+        C->lastError = zdb_sqlite3_prepare_v2(C->db, StringBuffer_toString(C->sb), StringBuffer_length(C->sb), &stmt, &tail, C->busyTimeout);
         if (C->lastError == SQLITE_OK) {
                 if (! stmt) // empty or comment-only SQL: prepare succeeds but produces no statement
                         THROW(SQLException, "Empty SQL statement");
-                return ResultSet_new(SQLiteResultSet_new(C->delegator, stmt, false), (Rop_T)&sqlite3rops);
+                return ResultSet_new(SQLiteResultSet_new(C->delegator, stmt, false, C->busyTimeout), (Rop_T)&sqlite3rops);
         }
         return NULL;
 }
@@ -254,11 +283,11 @@ static PreparedStatement_T _prepareStatement(T C, const char *sql, va_list ap) {
         va_copy(ap_copy, ap);
         StringBuffer_vset(C->sb, sql, ap_copy);
         va_end(ap_copy);
-        C->lastError = zdb_sqlite3_prepare_v2(C->db, StringBuffer_toString(C->sb), -1, &stmt, &tail);
+        C->lastError = zdb_sqlite3_prepare_v2(C->db, StringBuffer_toString(C->sb), -1, &stmt, &tail, C->busyTimeout);
         if (C->lastError == SQLITE_OK) {
                 if (! stmt) // empty or comment-only SQL: prepare succeeds but produces no statement
                         THROW(SQLException, "Empty SQL statement");
-                return PreparedStatement_new(SQLitePreparedStatement_new(C->delegator, stmt), (Pop_T)&sqlite3pops);
+                return PreparedStatement_new(SQLitePreparedStatement_new(C->delegator, stmt, C->busyTimeout), (Pop_T)&sqlite3pops);
         }
         return NULL;
 }

@@ -42,9 +42,9 @@
  *
  * The method Connection_executeQuery() will return an empty ResultSet (not null)
  * if the SQL statement did not return any values. A ResultSet is valid until the
- * next call to Connection execute or until the Connection is returned
- * to the Connection Pool. If an error occurs during execution, an SQLException
- * is thrown.
+ * next call to Connection execute or begin transaction, or until the Connection
+ * is returned to the Connection Pool. If an error occurs during execution, an
+ * SQLException is thrown.
  *
  * Any SQL statement that changes the database (basically, any SQL
  * command other than SELECT) will automatically start a transaction
@@ -248,6 +248,7 @@ time_t Connection_getLastAccessedTime(T C) __attribute__ ((visibility("hidden"))
  *
  * If the limit is exceeded, the statement will return immediately with an 
  * error. The timeout is set per connection/session. The default is no query timeout.
+ * MySQL and SQLite limit SELECT statements only.
  *
  * @param C A Connection object
  * @param ms The query timeout in milliseconds; zero (the default) means there
@@ -512,8 +513,9 @@ void Connection_execute(T C, const char *sql, ...) __attribute__((format (printf
  * parameter string contains more than one SQL statement, only the
  * first statement is executed, the others are silently ignored.
  * A ResultSet is valid until the next call to Connection_executeQuery(),
- * Connection_execute() or until the Connection is returned to the Connection
- * Pool. *This means that Result Sets cannot be saved between queries*.
+ * Connection_execute(), Connection_beginTransaction() or until the Connection
+ * is returned to the Connection Pool.
+ * *This means that Result Sets cannot be saved between queries*.
  *
  * @param C A Connection object
  * @param sql A SQL statement

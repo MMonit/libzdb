@@ -318,8 +318,7 @@ AC_ARG_ENABLE(sqliteunlock,
         AS_HELP_STRING([--enable-sqliteunlock],
                 [Enable the SQLite unlock notification API (requires SQLite >= 3.6.12
                 compiled with the SQLITE_ENABLE_UNLOCK_NOTIFY C-preprocessor symbol).
-                Using this option will greatly improve SQLite concurrency when libzdb
-                and SQLite are used from a multi-threaded program.]),
+                It is only used with the URL parameter shared-cache=true.]),
     [
         if test "x$enableval" = "xyes" ; then
                 SQLITEUNLOCK=1

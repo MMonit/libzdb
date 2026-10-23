@@ -1403,6 +1403,7 @@ namespace zdb {
          *
          * If the limit is exceeded, the statement will return immediately with an error.
          * The timeout is set per connection/session. The default is no query timeout.
+         * MySQL and SQLite limit SELECT statements only.
          *
          * @param ms Timeout in milliseconds.
          */
@@ -1770,7 +1771,8 @@ namespace zdb {
      *   With shared-cache, build libsqlite and libzdb with unlock notify.
      * - `busy_timeout=200` - Wait up to 200 ms for a lock held by another
      *   connection before failing with "database is locked". The default
-     *   is 500 ms.
+     *   is 5000 ms. A transaction that reads before it writes cannot wait
+     *   for the write lock; begin it with TRANSACTION_IMMEDIATE.
      *
      * Example URL for SQLite (with recommended pragmas):
      * ```

@@ -30,11 +30,16 @@
 
 #include "zdb.h"
 
-int zdb_sqlite3_step(sqlite3_stmt *pStmt) __attribute__ ((visibility("hidden")));
-int zdb_sqlite3_prepare_v2(sqlite3 *db, const char *zSql, int nSql, sqlite3_stmt **ppStmt, const char **pz) __attribute__ ((visibility("hidden")));
-int zdb_sqlite3_exec(sqlite3 *db, const char *sql) __attribute__ ((visibility("hidden")));
+#if defined SQLITEUNLOCK && SQLITE_VERSION_NUMBER >= 3006012
+int zdb_sqlite3_step(sqlite3_stmt *pStmt, int timeout) __attribute__ ((visibility("hidden")));
+int zdb_sqlite3_prepare_v2(sqlite3 *db, const char *zSql, int nSql, sqlite3_stmt **ppStmt, const char **pz, int timeout) __attribute__ ((visibility("hidden")));
+#else
+#define zdb_sqlite3_step(pStmt, timeout) sqlite3_step(pStmt)
+#define zdb_sqlite3_prepare_v2(db, zSql, nSql, ppStmt, pz, timeout) sqlite3_prepare_v2(db, zSql, nSql, ppStmt, pz)
+#endif
+int zdb_sqlite3_exec(sqlite3 *db, const char *sql, int timeout) __attribute__ ((visibility("hidden")));
 
-ResultSetDelegate_T SQLiteResultSet_new(Connection_T delegator, sqlite3_stmt *stmt, int keep) __attribute__ ((visibility("hidden")));
-PreparedStatementDelegate_T SQLitePreparedStatement_new(Connection_T delegator, sqlite3_stmt *stmt) __attribute__ ((visibility("hidden")));
+ResultSetDelegate_T SQLiteResultSet_new(Connection_T delegator, sqlite3_stmt *stmt, int keep, int busyTimeout) __attribute__ ((visibility("hidden")));
+PreparedStatementDelegate_T SQLitePreparedStatement_new(Connection_T delegator, sqlite3_stmt *stmt, int busyTimeout) __attribute__ ((visibility("hidden")));
 
 #endif
