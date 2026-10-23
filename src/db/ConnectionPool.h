@@ -70,16 +70,11 @@
  * started with a reaper-thread (see below) since the reaper dynamically changes the
  * size of the pool.
  *
- * A pool and its Connections belong to the process that started the pool
- * and must not be used across fork(): parent and child would share the
- * same database connections and corrupt each other's state. With SQLite,
- * a connection that the child opens itself is not safe either, as long as
- * inherited connections to the same database exist, because it shares
- * their lock state. The macOS SQLite library rejects such a connection
- * with "locking protocol", other builds do not detect it. If a child
- * process uses the database, call fork() before ConnectionPool_start(),
- * or call ConnectionPool_stop() before fork() and ConnectionPool_start()
- * again in each process. A child that only calls exec() is not affected.
+ * A pool and its Connections should not be used across fork(), parent and child
+ * would share the same database connections and can corrupt each other's state.
+ * If a child process uses the database, call fork() before ConnectionPool_start(),
+ * or call ConnectionPool_stop() before fork() and ConnectionPool_start() again
+ * in each process.
  *
  * ## Connection URL:
  *
