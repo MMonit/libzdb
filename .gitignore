@@ -29,6 +29,7 @@ doc/api-docs/*
 src/net/URL.c
 src/system/Time.c
 config/*
+test/busy
 test/exception
 test/pool
 test/select
