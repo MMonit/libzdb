@@ -6,6 +6,10 @@ zdbpp_CXXFLAGS = -I../zdb
 CFLAGS = -I../src -I../src/util -I../src/net -I../src/db -I../src/exceptions @CFLAGS@
 
 noinst_PROGRAMS = unit pool select exception zdbpp
+if WITH_SQLITE
+noinst_PROGRAMS += busy
+busy_SOURCES = busy.c
+endif
 unit_SOURCES = unit.c
 pool_SOURCES = pool.c
 select_SOURCES = select.c
@@ -20,4 +24,4 @@ distclean-local:
 test: unit pool select zdbpp
 
 verify:
-	@/bin/sh ./exception && ./unit && ./pool && ./zdbpp
+	@/bin/sh ./exception && ./unit && ./pool && ./zdbpp && (test ! -x ./busy || ./busy)

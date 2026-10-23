@@ -20,12 +20,12 @@ Version 3.7.0
   size.
 * Fixed: SQLite: "database is locked" errors when several connections
   write at the same time, as in WAL mode. A connection now waits up to
-  5 seconds for a lock held by another connection, using SQLite's own
-  busy handler in all builds. The busy_timeout URL parameter changes
-  this timeout. Note that a transaction that reads before it writes
-  cannot wait for the write lock: if another connection is writing, or
-  has written since the transaction's first read, the write fails at
-  once with "database is locked". Start such a transaction with
+  5 seconds for a lock held by another connection, in all builds. The
+  busy_timeout URL parameter changes this timeout. Note that a
+  transaction that reads before it writes cannot wait for the write
+  lock: if another connection is writing, or has written since the
+  transaction's first read, the write fails at once with "database is
+  locked". Start such a transaction with
   Connection_beginTransactionType() and TRANSACTION_IMMEDIATE, which
   takes the write lock up front and waits for it like any other lock.
 * Fixed: Connection_beginTransaction() now closes the Connection's

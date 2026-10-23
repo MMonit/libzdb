@@ -30,11 +30,20 @@
 
 #include "zdb.h"
 
-#if defined SQLITEUNLOCK && SQLITE_VERSION_NUMBER >= 3006012
+/**
+ * Busy state of a connection that waits with zdb_sqlite3_busy_handler(): the busy timeout, and the wait in progress
+ */
+typedef struct ZdbBusy_T {
+        int timeout;              // ms, the busy timeout
+        long long started;        // µs, CLOCK_MONOTONIC, when the current wait started
+        unsigned long long seen;  // the wake-up generation at the last retry
+} ZdbBusy_T;
+
+void zdb_sqlite3_busy_handler(sqlite3 *db, ZdbBusy_T *busy) __attribute__ ((visibility("hidden")));
 int zdb_sqlite3_step(sqlite3_stmt *pStmt, int timeout) __attribute__ ((visibility("hidden")));
+#if defined SQLITEUNLOCK && SQLITE_VERSION_NUMBER >= 3006012
 int zdb_sqlite3_prepare_v2(sqlite3 *db, const char *zSql, int nSql, sqlite3_stmt **ppStmt, const char **pz, int timeout) __attribute__ ((visibility("hidden")));
 #else
-#define zdb_sqlite3_step(pStmt, timeout) sqlite3_step(pStmt)
 #define zdb_sqlite3_prepare_v2(db, zSql, nSql, ppStmt, pz, timeout) sqlite3_prepare_v2(db, zSql, nSql, ppStmt, pz)
 #endif
 int zdb_sqlite3_exec(sqlite3 *db, const char *sql, int timeout) __attribute__ ((visibility("hidden")));

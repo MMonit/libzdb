@@ -47,6 +47,7 @@ struct T {
         sqlite3 *db;
         int maxRows;
         int lastError;
+        ZdbBusy_T busy;
         int busyTimeout;
         int queryTimeout;
         long long deadline;
@@ -59,6 +60,14 @@ extern const struct Pop_T sqlite3pops;
 
 
 /* --------------------------------------------------------- Private methods */
+
+
+// Wait up to ms for a lock held by another connection, in libzdb's busy handler, which retries as soon as a connection of this process ends a
+// write transaction
+static void _setBusyHandler(T C, int ms) {
+        C->busy.timeout = ms;
+        zdb_sqlite3_busy_handler(C->db, &C->busy);
+}
 
 
 // Return options for the database connection
@@ -114,7 +123,7 @@ static bool _setProperties(T C, char **error) {
                                 continue; // Handled in _doConnect, ignore
                         } else if (Str_isEqual(properties[i], "busy_timeout")) {
                                 C->busyTimeout = Str_parseInt(URL_getParameter(url, properties[i]));
-                                sqlite3_busy_timeout(C->db, C->busyTimeout);
+                                _setBusyHandler(C, C->busyTimeout);
                         } else {
                                 StringBuffer_append(C->sb, "PRAGMA %s = %s; ", properties[i], URL_getParameter(url, properties[i]));
                         }
@@ -171,7 +180,7 @@ static T _new(Connection_T delegator, char **error) {
         C->db = db;
         C->delegator = delegator;
         C->busyTimeout = kDefaultBusyTimeout;
-        sqlite3_busy_timeout(C->db, C->busyTimeout);
+        _setBusyHandler(C, C->busyTimeout);
         C->sb = StringBuffer_create(STRLEN);
         if (! _setProperties(C, error))
                 _free(&C);
