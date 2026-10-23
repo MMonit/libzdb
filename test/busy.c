@@ -20,7 +20,8 @@
  * 1. Hand-off: a writer holds the write lock 150 ms, another one waits: the time from the commit to the waiter's success.
  * 2. Timeout: the lock is held 1.2 s: the waiter fails with "database is locked" after the busy timeout (500 ms).
  * 3. Chunked writer: a writer takes the lock 40 times for 50 ms with a 2 ms pause, 8 threads insert meanwhile: failed inserts and the longest wait.
- * 4. Another process: a child process holds and releases the lock; its commit wakes nobody up here, the waiter notices the release by polling.
+ * 4. Another process: a child process holds and releases the lock; its commit wakes nobody up here, the waiter notices the release by polling, or
+ *    with SQLite's blocking locks (Apple's SQLite) the kernel wakes it up.
  */
 
 #define BUSY_TIMEOUT 500 // ms

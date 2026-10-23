@@ -18,6 +18,15 @@ Version 3.7.0
   returning a row fails with "interrupted". It no longer changes how
   long a statement waits for a lock; the busy_timeout URL parameter
   sets that.
+* Enhancement: SQLite: Faster lock hand-over between processes that use
+  the same database file, with SQLite libraries that implement blocking
+  locks, such as the macOS system library. A connection waiting for a
+  lock held by another process is now woken by the kernel as soon as
+  the lock is released, instead of polling for it. On macOS, the time
+  from a commit in one process to a waiting writer's success in another
+  went from about 7 ms to about 0.1 ms. This uses
+  sqlite3_setlk_timeout(), new in SQLite 3.50. SQLite built from the
+  official sources has no blocking locks on Unix, and is not affected.
 * Fixed: Keep PreparedStatements on Connection_rollback() so they can be
   reused; executing one after a rollback used freed memory. Only
   Connection_close() and Connection_clear() release prepared statements,

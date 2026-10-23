@@ -104,6 +104,13 @@ static int _busyHandler(void *arg, int count) {
 
 void zdb_sqlite3_busy_handler(sqlite3 *db, ZdbBusy_T *busy) {
         sqlite3_busy_handler(db, _busyHandler, busy);
+#if SQLITE_VERSION_NUMBER >= 3050000
+        // sqlite3_busy_handler() turned off blocking locks, turn them on again:
+        // in builds with blocking locks, such as Apple's, a lock held by another
+        // process is waited for in the kernel, which wakes us up as soon as it
+        // is released. A no-op in other builds. Note, -1 means forever here
+        sqlite3_setlk_timeout(db, busy->timeout > 0 ? busy->timeout : 0, 0);
+#endif
 }
 
 

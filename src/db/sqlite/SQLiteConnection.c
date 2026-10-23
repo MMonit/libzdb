@@ -63,7 +63,9 @@ extern const struct Pop_T sqlite3pops;
 
 
 // Wait up to ms for a lock held by another connection, in libzdb's busy handler,
-// which retries as soon as a connection of this process ends a write transaction
+// which retries as soon as a connection of this process ends a write transaction.
+// With SQLite's blocking locks (Apple's SQLite), a lock held by another process
+// is waited for in the kernel instead
 static void _setBusyHandler(T C, int ms) {
         C->busy.timeout = ms;
         zdb_sqlite3_busy_handler(C->db, &C->busy);

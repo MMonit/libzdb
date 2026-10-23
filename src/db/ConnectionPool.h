@@ -448,12 +448,12 @@ void ConnectionPool_start(T P);
 
 
 /**
- * @brief Gracefully terminates the pool.
+ * @brief Gracefully stops the pool.
  *
- * This method should be the last one called on a given instance of this
- * component. Calling this method closes down all connections in the pool,
+ * Calling this method closes down all connections in the pool,
  * disconnects the pool from the database server, and stops the reaper
- * thread if it was started.
+ * thread if it was started. A stopped pool can be started again with
+ * ConnectionPool_start(), for instance in each process after fork().
  *
  * @param P A ConnectionPool object
  */
