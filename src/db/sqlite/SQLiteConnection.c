@@ -62,8 +62,8 @@ extern const struct Pop_T sqlite3pops;
 /* --------------------------------------------------------- Private methods */
 
 
-// Wait up to ms for a lock held by another connection, in libzdb's busy handler, which retries as soon as a connection of this process ends a
-// write transaction
+// Wait up to ms for a lock held by another connection, in libzdb's busy handler,
+// which retries as soon as a connection of this process ends a write transaction
 static void _setBusyHandler(T C, int ms) {
         C->busy.timeout = ms;
         zdb_sqlite3_busy_handler(C->db, &C->busy);

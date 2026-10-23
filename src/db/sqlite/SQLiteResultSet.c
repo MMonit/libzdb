@@ -195,6 +195,6 @@ const struct Rop_T sqlite3rops = {
         .getBlob        = _getBlob,
         .getTimestamp   = _getTimestamp,
         .getDateTime    = _getDateTime
-        // get/setFetchSize is not applicable for SQLite
+        // get/setFetchSize not applicable for SQLite
 };
 

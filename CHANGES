@@ -7,12 +7,17 @@ Version 3.7.0
 
 * New: Increase the prepared statements parameter limit from 99 to 200
   for PostgreSQL and Oracle.
-* New: The exception stack is changed from a pthread key to a C11
-  thread-local variable, for improved performance.
 * New: A regular C return statement can now be used inside a TRY block
   to return early. Previously, the RETURN macro had to be used for this
   purpose. This uses a GCC and Clang extension, so code using TRY must
   be compiled with GCC or Clang.
+* Enhancement: The exception stack is changed from a pthread key to a
+  C11 thread-local variable, for improved performance.
+* Enhancement: SQLite: Connection_setQueryTimeout() now limits SELECT
+  statements. One that runs for longer than the timeout without
+  returning a row fails with "interrupted". It no longer changes how
+  long a statement waits for a lock; the busy_timeout URL parameter
+  sets that.
 * Fixed: Keep PreparedStatements on Connection_rollback() so they can be
   reused; executing one after a rollback used freed memory. Only
   Connection_close() and Connection_clear() release prepared statements,
@@ -21,32 +26,22 @@ Version 3.7.0
 * Fixed: SQLite: "database is locked" errors when several connections
   write at the same time, as in WAL mode. A connection now waits up to
   5 seconds for a lock held by another connection, in all builds. The
-  busy_timeout URL parameter changes this timeout. Note that a
-  transaction that reads before it writes cannot wait for the write
-  lock: if another connection is writing, or has written since the
-  transaction's first read, the write fails at once with "database is
-  locked". Start such a transaction with
+  busy_timeout URL parameter can be used to change this timeout. Note
+  that a transaction that reads before it writes cannot wait for the
+  write lock: if another connection is writing, or has written since
+  the transaction's first read, the write fails at once with "database
+  is locked". Start such a transaction with
   Connection_beginTransactionType() and TRANSACTION_IMMEDIATE, which
   takes the write lock up front and waits for it like any other lock.
 * Fixed: Connection_beginTransaction() now closes the Connection's
   current ResultSet, as Connection_execute() and
-  Connection_executeQuery() do. On SQLite, a transaction begun while a
-  ResultSet was still being read could not wait for the write lock and
-  failed at once with "database is locked" when another connection was
-  writing.
-* New: SQLite: Connection_setQueryTimeout() now limits SELECT
-  statements. One that runs for longer than the timeout without
-  returning a row fails with "interrupted". It no longer changes how
-  long a statement waits for a lock; the busy_timeout URL parameter
-  sets that.
+  Connection_executeQuery() do. On SQLite, a transaction that begun
+  while a ResultSet was still being read could not wait for the write
+  lock and failed at once with "database is locked" when another
+  connection was writing.
 * Fixed: SQLite: In builds with unlock notify, a shared-cache
   connection waiting for another connection's table lock could wait
   forever. It now waits at most the busy timeout.
-* Removed: The --enable-sqlite-shared-cache configure option. Shared-cache
-  can still be enabled per connection with the URL parameter
-  shared-cache=true. Such a connection waits for another connection's
-  table lock only in builds with unlock notify (--enable-sqliteunlock);
-  other builds fail at once with "database table is locked".
 * Fixed: PostgreSQL: Connection_commit() reported success for a
   transaction that a failed statement had aborted. PostgreSQL rolls such
   a transaction back and answers COMMIT with ROLLBACK and no error, so its
@@ -55,6 +50,11 @@ Version 3.7.0
 * Fixed: C++: an error in ResultSet::next() or in a getter such as
   getString(), getInt() or isNull() called the abort handler instead
   of throwing sql_exception.
+* Removed: The --enable-sqlite-shared-cache configure option. Shared-cache
+  can still be enabled per connection with the URL parameter
+  shared-cache=true. Such a connection waits for another connection's
+  table lock only in builds with unlock notify (--enable-sqliteunlock);
+  other builds fail at once with "database table is locked".
 
 
 Version 3.6.0

@@ -30,9 +30,9 @@
 
 #include "zdb.h"
 
-/**
- * Busy state of a connection that waits with zdb_sqlite3_busy_handler(): the busy timeout, and the wait in progress
- */
+
+/// Busy state of a connection that waits with zdb_sqlite3_busy_handler():
+/// the busy timeout, and the wait in progress
 typedef struct ZdbBusy_T {
         int timeout;              // ms, the busy timeout
         long long started;        // µs, CLOCK_MONOTONIC, when the current wait started

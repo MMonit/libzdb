@@ -50,7 +50,8 @@ static inline long long _monotonic(void) {
 }
 
 
-// Wake up the connections waiting in the busy handler: a write transaction has ended and its lock is released
+// Wake up the connections waiting in the busy handler:
+// a write transaction has ended and its lock is released
 static void _wakeup(void) {
         Mutex_lock(_busy.mutex);
         _busy.generation++;
@@ -59,7 +60,8 @@ static void _wakeup(void) {
 }
 
 
-// SQLite calls this busy handler when the connection could not get a lock, count is the number of times it was called for the same lock. Return
+// SQLite calls this busy handler when the connection could not get a lock,
+// count is the number of times it was called for the same lock. Return
 // non-zero to make SQLite try again, zero to make it fail with SQLITE_BUSY
 static int _busyHandler(void *arg, int count) {
         ZdbBusy_T *busy = arg;
@@ -68,7 +70,8 @@ static int _busyHandler(void *arg, int count) {
         long long now = _monotonic();
         Mutex_lock(_busy.mutex);
         if (count == 0) {
-                // The lock may have been released between the failed attempt and now: retry at once, and wait from the next failed attempt on
+                // The lock may have been released between the failed attempt and now:
+                // retry at once, and wait from the next failed attempt on
                 busy->started = now;
                 busy->seen = _busy.generation;
                 Mutex_unlock(_busy.mutex);
@@ -80,7 +83,8 @@ static int _busyHandler(void *arg, int count) {
                 return 0;
         }
         if (_busy.generation == busy->seen) {
-                // No write transaction ended since the last retry: wait for one, at most kBusyPoll µs and not past the deadline
+                // No write transaction ended since the last retry:
+                // wait for one, at most kBusyPoll µs and not past the deadline
                 long long wait = deadline - now < kBusyPoll ? deadline - now : kBusyPoll;
                 long long end = now + wait;
                 struct timespec until;
@@ -105,10 +109,9 @@ void zdb_sqlite3_busy_handler(sqlite3 *db, ZdbBusy_T *busy) {
 
 #if defined SQLITEUNLOCK && SQLITE_VERSION_NUMBER >= 3006012
 
-/*
- * SQLite unlock notify API
- * @see https://www.sqlite.org/unlock_notify.html
- */
+
+// MARK: -  SQLite unlock notify API
+// @see https://www.sqlite.org/unlock_notify.html
 
 typedef struct UnlockNotification {
         int fired;

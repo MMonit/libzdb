@@ -70,6 +70,17 @@
  * started with a reaper-thread (see below) since the reaper dynamically changes the
  * size of the pool.
  *
+ * A pool and its Connections belong to the process that started the pool
+ * and must not be used across fork(): parent and child would share the
+ * same database connections and corrupt each other's state. With SQLite,
+ * a connection that the child opens itself is not safe either, as long as
+ * inherited connections to the same database exist, because it shares
+ * their lock state. The macOS SQLite library rejects such a connection
+ * with "locking protocol", other builds do not detect it. If a child
+ * process uses the database, call fork() before ConnectionPool_start(),
+ * or call ConnectionPool_stop() before fork() and ConnectionPool_start()
+ * again in each process. A child that only calls exec() is not affected.
+ *
  * ## Connection URL:
  *
  * The URL given to a Connection Pool at creation time specifies a database
@@ -121,7 +132,7 @@
  *   if value is true, otherwise multi-thread mode is used (the default).
  * - `shared-cache=true` - Make SQLite use shared-cache if value is true.
  *   With shared-cache, build libsqlite and libzdb with unlock notify.
- * - `busy_timeout=200` - Wait up to 200 ms for a lock held by another
+ * - `busy_timeout=3000` - Wait up to 3000 ms for a lock held by another
  *   connection before failing with "database is locked". The default
  *   is 5000 ms. A transaction that reads before it writes cannot wait
  *   for the write lock; begin it with TRANSACTION_IMMEDIATE.

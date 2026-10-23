@@ -328,6 +328,7 @@
 		528F4D3C145A5AA3002CD67D /* libzdb.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libzdb.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		52931A3D1DC2D6710032240D /* oracleoptions.html */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 4; lastKnownFileType = text.html; path = oracleoptions.html; sourceTree = "<group>"; tabWidth = 4; };
 		52931A3E1DC2D6710032240D /* libzdboptions.css */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.css; path = libzdboptions.css; sourceTree = "<group>"; };
+		5297A8B2308BC6C1005B7F07 /* busy.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = busy.c; sourceTree = "<group>"; };
 		529FECB02D15E89900C87F6D /* exception */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = exception; sourceTree = BUILT_PRODUCTS_DIR; };
 		52C32EE9145BA3A500C72758 /* Time.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Time.h; sourceTree = "<group>"; };
 		52C32EEB145BA3F900C72758 /* System.c */ = {isa = PBXFileReference; fileEncoding = 4; indentWidth = 8; lastKnownFileType = sourcecode.c.c; path = System.c; sourceTree = "<group>"; tabWidth = 8; };
@@ -619,6 +620,7 @@
 				52788C2113E716A0002F3C7C /* pool.c */,
 				52788C2213E716A0002F3C7C /* select.c */,
 				52788C2313E716A0002F3C7C /* unit.c */,
+				5297A8B2308BC6C1005B7F07 /* busy.c */,
 				523FDB9622438C5400B3C767 /* zdbpp.cpp */,
 			);
 			path = test;
