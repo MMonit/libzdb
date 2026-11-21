@@ -14,8 +14,7 @@ RE2C		= @RE2C@
 RE2CFLAGS       = -i
 FILTERH         = ./tools/bin/filterh
 
-AM_CPPFLAGS     = $(CPPFLAGS) $(DBCPPFLAGS)
-AM_CPPFLAGS     += -Isrc -Isrc/util -Isrc/net -Isrc/db -Isrc/db/oracle -Isrc/exceptions
+AM_CPPFLAGS     = -Isrc -Isrc/util -Isrc/net -Isrc/db -Isrc/db/oracle -Isrc/exceptions
 
 pkgconfigdir 	= $(libdir)/pkgconfig
 pkgconfig_DATA 	= $(LIBRARY_NAME).pc

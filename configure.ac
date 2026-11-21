@@ -204,6 +204,9 @@ LT_INIT
 # Build options
 # ---------------------------------------------------------------------------
 
+# Database Libraries libzdb links with, filled in by the database checks below.
+# Kept out of LDFLAGS. Automake's libzdb_la_LDFLAGS puts them before LDFLAGS,
+# and they survive LDFLAGS set on the make command line.
 DBLDFLAGS="-lm "
 
 AC_ARG_ENABLE(optimized,
@@ -302,8 +305,11 @@ AC_ARG_ENABLE([openssl],
                         AC_CHECK_LIB([crypto], [SHA1_Init], [], [AC_MSG_ERROR([libcrypto not found])])
                 else
                         AC_MSG_CHECKING([for openssl in $enableval])
-                        LDFLAGS="-L$enableval/lib -lssl -lcrypto $LDFLAGS"
-                        CPPFLAGS="-I$enableval/include $CPPFLAGS"
+                        LDFLAGS="$LDFLAGS -L$enableval/lib -lssl -lcrypto"
+                        # libzdb is linked with DBLDFLAGS before LDFLAGS, so add the path there too,
+                        # ahead of the database lib directories, which may have their own libssl
+                        DBLDFLAGS="$DBLDFLAGS -L$enableval/lib"
+                        CPPFLAGS="$CPPFLAGS -I$enableval/include"
                         if test -r "$enableval/lib/libssl.a" -a -r "$enableval/lib/libcrypto.a"; then
                                 AC_MSG_RESULT([ok])
                         else
@@ -400,11 +406,10 @@ AC_ARG_WITH([postgresql],
 if test "xyes" = "x$postgresql"; then
         svd_CPPFLAGS=$CPPFLAGS
         svd_LDFLAGS=$LDFLAGS
-        CPPFLAGS="-I`$PGCONFIG --includedir` $CPPFLAGS"
-        LDFLAGS="-L`$PGCONFIG --libdir` $LDFLAGS"
+        CPPFLAGS="$CPPFLAGS -I`$PGCONFIG --includedir`"
+        LDFLAGS="$LDFLAGS -L`$PGCONFIG --libdir`"
         AC_CHECK_HEADERS([libpq-fe.h], [], [postgresql="no"])
         if test "xyes" = "x$postgresql"; then
-                DBCPPFLAGS="$DBCPPFLAGS -I`$PGCONFIG --includedir`"
                 DBLDFLAGS="$DBLDFLAGS -L`$PGCONFIG --libdir` -lpq"
                 AC_DEFINE([HAVE_LIBPQ], 1, [Define to 1 to enable postgresql])
         else
@@ -431,15 +436,16 @@ AC_ARG_WITH([sqlite],
                         [
                                 svd_LDFLAGS=$LDFLAGS
                                 svd_CPPFLAGS=$CPPFLAGS
-                                LDFLAGS="-L$with_sqlite/lib $LDFLAGS"
-                                CPPFLAGS="-I$with_sqlite/include $CPPFLAGS"
+                                LDFLAGS="$LDFLAGS -L$with_sqlite/lib"
+                                CPPFLAGS="$CPPFLAGS -I$with_sqlite/include"
                                 AC_SEARCH_LIBS([sqlite3_open], [sqlite3],
                                 [
-                                        DBCPPFLAGS="$DBCPPFLAGS -I$with_sqlite/include"
                                         DBLDFLAGS="$DBLDFLAGS -L$with_sqlite/lib/ -lsqlite3"
-                                ],[sqlite="no"],[-ldl -lm])
-                                LDFLAGS=$svd_LDFLAGS
-                                CPPFLAGS=$svd_CPPFLAGS
+                                ],[
+                                        sqlite="no"
+                                        LDFLAGS=$svd_LDFLAGS
+                                        CPPFLAGS=$svd_CPPFLAGS
+                                ],[-ldl -lm])
 
                         ],
                         AC_SEARCH_LIBS([sqlite3_open], [sqlite3], [], [sqlite="no"], [-ldl -lm]))
@@ -486,13 +492,22 @@ AC_ARG_WITH([mysql],
 if test "xyes" = "x$mysql"; then
         svd_CPPFLAGS=$CPPFLAGS
         svd_LDFLAGS=$LDFLAGS
-        CPPFLAGS="`$MYSQLCONFIG --include` $CPPFLAGS"
-        LDFLAGS="`$MYSQLCONFIG --libs` $LDFLAGS"
+        CPPFLAGS="$CPPFLAGS `$MYSQLCONFIG --include`"
+        LDFLAGS="$LDFLAGS `$MYSQLCONFIG --libs`"
         AC_CHECK_HEADERS([mysql.h], [], [mysql="no"])
         if test "xyes" = "x$mysql"; then
-                DBCPPFLAGS="$DBCPPFLAGS `$MYSQLCONFIG --include`"
                 DBLDFLAGS="$DBLDFLAGS `$MYSQLCONFIG --libs`"
                 AC_DEFINE([HAVE_LIBMYSQLCLIENT], 1, [Define to 1 to enable mysql])
+                if test "x$ondarwin" = "x1"; then
+                    # Binaries need an rpath to MySQL's lib directory to load it
+                    mysql_libdir=`$MYSQLCONFIG --variable=pkglibdir 2>/dev/null`
+                    if test -d "$mysql_libdir"; then
+                        LDFLAGS="$LDFLAGS -Wl,-rpath,$mysql_libdir"
+                    fi
+                    # mysql_config --libs adds -lssl -lcrypto, MySQL's bundled copies, which
+                    # dyld can't load (no path in their install names). Drop unused dylibs.
+                    LDFLAGS="$LDFLAGS -Wl,-dead_strip_dylibs"
+                fi
         else
                 CPPFLAGS=$svd_CPPFLAGS
                 LDFLAGS=$svd_LDFLAGS
@@ -504,9 +519,16 @@ oracle="yes"
 AC_MSG_CHECKING(for oracle)
 AX_LIB_ORACLE_OCI
 if test -n "$ORACLE_OCI_CFLAGS" -a -n "$ORACLE_OCI_LDFLAGS"; then
-        DBCPPFLAGS="$DBCPPFLAGS $ORACLE_OCI_CFLAGS"
+        CPPFLAGS="$CPPFLAGS $ORACLE_OCI_CFLAGS"
         DBLDFLAGS="$DBLDFLAGS $ORACLE_OCI_LDFLAGS"
         AC_DEFINE([HAVE_ORACLE], 1, [Define to 1 to enable oracle])
+        if test "x$ondarwin" = "x1"; then
+                for flag in $ORACLE_OCI_LDFLAGS; do
+                        case $flag in
+                                -L*) LDFLAGS="$LDFLAGS -Wl,-rpath,`echo $flag | sed 's/^-L//'`" ;;
+                        esac
+                done
+        fi
 else
         oracle="no"
 fi
@@ -518,7 +540,6 @@ if test "xno" = "x$postgresql" -a "xno" = "x$mysql" -a "xno" = "x$sqlite" -a "xn
 fi
 
 AC_SUBST(DBLDFLAGS)
-AC_SUBST(DBCPPFLAGS)
 
 # ---------------------------------------------------------------------------
 # Data Types
