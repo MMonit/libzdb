@@ -56,6 +56,16 @@ Version 3.7.0
   a transaction back and answers COMMIT with ROLLBACK and no error, so its
   changes were lost silently. Connection_commit() now throws an
   SQLException with SQLSTATE 25P02.
+* Fixed: Oracle: A statement outside a transaction was never committed.
+  Other connections did not see its changes, and a later
+  Connection_beginTransaction() failed with ORA-01453. Such statements
+  are now committed when they succeed. The row locks of a
+  SELECT ... FOR UPDATE outside a transaction are released once no
+  ResultSet is open. ConnectionPool_stop() now rolls back any open
+  transaction of a Connection still in use, instead of committing it.
+* Fixed: Oracle: A failed begin, commit or rollback now sets the error
+  code of the SQLException. ResultSet_getColumnSize() now throws for an
+  invalid column index.
 * Fixed: C++: an error in ResultSet::next() or in a getter such as
   getString(), getInt() or isNull() called the abort handler instead
   of throwing sql_exception.
