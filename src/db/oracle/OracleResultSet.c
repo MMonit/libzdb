@@ -77,6 +77,7 @@ struct T {
         column_t    columns;
         sword       lastError;
         int         freeStatement;
+        OracleTransaction_T transaction;
         Connection_T delegator;
         char        erb[ORACLE_ERR_SIZE];
 };
@@ -91,10 +92,8 @@ struct T {
 /* ------------------------------------------------------- Private methods */
 
 
-// Convenience macro for error messages
 #define ERR(R) Oracle_getError((R)->lastError, (R)->err, NULL, (R)->erb, sizeof((R)->erb))
 
-// Macro to throw SQLException with Oracle error code and message in one OCIErrorGet call
 #define THROW_ORACLE_ERROR(R) do { \
         int _code; \
         const char *_msg = Oracle_getError((R)->lastError, (R)->err, &_code, (R)->erb, sizeof((R)->erb)); \
@@ -157,7 +156,6 @@ static bool _initDefiningBuffers(T R) {
                                                               R->columns[i - 1].buffer, deptlen, SQLT_STR,
                                                               &(R->columns[i - 1].isNull), 0, 0, OCI_DEFAULT);
                 }
-                // Get column name
                 char *col_name;
                 ub4 col_name_len;
                 R->lastError = OCIAttrGet(pard, OCI_DTYPE_PARAM, &col_name, &col_name_len, OCI_ATTR_NAME, R->err);
@@ -180,11 +178,7 @@ static bool _initDefiningBuffers(T R) {
 
 
 static bool _dateToString(T R, int i) {
-        // Use YYYY (calendar year), not IYYY (ISO week-numbering year): IYYY
-        // diverges from the calendar year around year boundaries (e.g. the
-        // calendar date 2024-12-30 falls in ISO week 1 of 2025), which would
-        // otherwise yield the wrong year when mixed with MM-DD. Use ':' as the
-        // time separator to match libzdb's canonical "YYYY-MM-DD HH:MM:SS" format.
+        // YYYY, not IYYY, which is the ISO week-numbering year and differs around new year
         const char fmt[] = "YYYY-MM-DD HH24:MI:SS";
         R->columns[i].length = DATE_STR_BUF_SIZE;
         if (R->columns[i].buffer)
@@ -203,12 +197,13 @@ static void _setFetchSize(T R, int rows);
 /* ------------------------------------------------------------- Constructor */
 
 
-T OracleResultSet_new(Connection_T delegator, OCIStmt *stmt, OCIEnv *env, OCISession *usr, OCIError *err, OCISvcCtx *svc, int need_free) {
+T OracleResultSet_new(Connection_T delegator, OCIStmt *stmt, OCIEnv *env, OCISession *usr, OCIError *err, OCISvcCtx *svc, int need_free, OracleTransaction_T transaction) {
         T R;
         assert(stmt);
         assert(env);
         assert(err);
         assert(svc);
+        assert(transaction);
         NEW(R);
         R->delegator = delegator;
         R->stmt = stmt;
@@ -216,6 +211,8 @@ T OracleResultSet_new(Connection_T delegator, OCIStmt *stmt, OCIEnv *env, OCISes
         R->err = err;
         R->svc = svc;
         R->usr = usr;
+        R->transaction = transaction;
+        R->transaction->resultSets++;
         R->maxRows = Connection_getMaxRows(R->delegator);
         R->freeStatement = need_free;
         R->lastError = OCIAttrGet(R->stmt, OCI_HTYPE_STMT, &R->columnCount, NULL, OCI_ATTR_PARAM_COUNT, R->err);
@@ -248,6 +245,9 @@ static void _free(T *R) {
                 FREE((*R)->columns[i].name);
         }
         FREE((*R)->columns);
+        // Not before the last one is closed, so no open FOR UPDATE cursor is cut short
+        if (--(*R)->transaction->resultSets == 0 && ! (*R)->transaction->active)
+                Oracle_endQueryTransaction((*R)->svc, (*R)->usr, (*R)->err);
         FREE(*R);
 }
 
@@ -271,6 +271,7 @@ static long _getColumnSize(T R, int columnIndex) {
         ub4 char_semantics = 0;
         ub2 col_width = 0;
         assert(R);
+        checkAndSetColumnIndex(columnIndex, R->columnCount);
         sword status = OCIParamGet(R->stmt, OCI_HTYPE_STMT, R->err, (void **)&pard, columnIndex);
         if (status != OCI_SUCCESS)
                 return -1;
@@ -335,7 +336,6 @@ static const char *_getString(T R, int columnIndex) {
                 if (!_dateToString(R, i))
                         THROW(SQLException, "%s", ERR(R));
         } else if (R->columns[i].lob_loc) {
-                // BLOB/CLOB columns should use ResultSet_getBlob()
                 DEBUG("getString: column %d is a BLOB type, use getBlob() instead\n", columnIndex);
                 return NULL;
         }
@@ -351,22 +351,13 @@ static const void *_getBlob(T R, int columnIndex, int *size) {
         *size = 0;
         if (R->columns[i].isNull)
                 return NULL;
-        // Non-LOB column (lob_loc is NULL): the value was already fetched into
-        // the OCIDefineByPos target buffer. Return it directly, same as _getString()
         if (!R->columns[i].lob_loc) {
                 *size = R->columns[i].buffer ? (int)strlen(R->columns[i].buffer) : 0;
                 return R->columns[i].buffer;
         }
-        // Reuse the existing buffer if possible. BLOB columns in a result set
-        // typically contain data of similar size (e.g., images, documents), so
-        // after processing a few rows, the buffer stabilizes at the high-water
-        // mark and subsequent reads avoid unnecessary alloc/free cycles. The
-        // buffer is freed when the ResultSet is closed. This follows the same
-        // pattern used in MysqlResultSet.c (_ensureCapacity).
         oraub8 read_chars = 0;
         oraub8 read_bytes = 0;
         oraub8 total_bytes = 0;
-        // Ensure we have an initial buffer
         if (!R->columns[i].buffer) {
                 R->columns[i].buffer = ALLOC(LOB_CHUNK_SIZE);
                 R->columns[i].capacity = LOB_CHUNK_SIZE;
@@ -375,7 +366,6 @@ static const void *_getBlob(T R, int columnIndex, int *size) {
         do {
                 read_bytes = 0;
                 read_chars = 0;
-                // Ensure capacity for the next chunk
                 if (total_bytes + LOB_CHUNK_SIZE > R->columns[i].capacity) {
                         R->columns[i].capacity = total_bytes + LOB_CHUNK_SIZE;
                         R->columns[i].buffer = RESIZE(R->columns[i].buffer, R->columns[i].capacity);

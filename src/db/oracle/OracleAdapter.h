@@ -31,6 +31,19 @@
 
 #define ORACLE_ERR_SIZE 512
 
+typedef struct OracleTransaction_S {
+        bool active;
+        int resultSets;
+} *OracleTransaction_T;
+
+// A SELECT ... FOR UPDATE outside a transaction leaves one open, with row locks but no changes
+static inline sword Oracle_endQueryTransaction(OCISvcCtx *svc, OCISession *usr, OCIError *err) {
+        boolean inProgress = FALSE;
+        if (OCIAttrGet(usr, OCI_HTYPE_SESSION, &inProgress, NULL, OCI_ATTR_TRANSACTION_IN_PROGRESS, err) != OCI_SUCCESS || ! inProgress)
+                return OCI_SUCCESS;
+        return OCITransRollback(svc, err, OCI_DEFAULT);
+}
+
 /**
  * Get Oracle error code (ORA-XXXXX number) and message from an OCI error handle.
  * @param status The OCI return status code
@@ -84,7 +97,7 @@ static inline const char *Oracle_getError(sword status, OCIError *err, int *code
         return msg;
 }
 
-ResultSetDelegate_T OracleResultSet_new(Connection_T delegator, OCIStmt *stmt, OCIEnv *env, OCISession* usr, OCIError *err, OCISvcCtx *svc, int need_free) __attribute__ ((visibility("hidden")));
-PreparedStatementDelegate_T OraclePreparedStatement_new(Connection_T delegator, OCIStmt *stmt, OCIEnv *env, OCISession* usr, OCIError *err, OCISvcCtx *svc) __attribute__ ((visibility("hidden")));
+ResultSetDelegate_T OracleResultSet_new(Connection_T delegator, OCIStmt *stmt, OCIEnv *env, OCISession* usr, OCIError *err, OCISvcCtx *svc, int need_free, OracleTransaction_T transaction) __attribute__ ((visibility("hidden")));
+PreparedStatementDelegate_T OraclePreparedStatement_new(Connection_T delegator, OCIStmt *stmt, OCIEnv *env, OCISession* usr, OCIError *err, OCISvcCtx *svc, OracleTransaction_T transaction) __attribute__ ((visibility("hidden")));
 
 #endif // !ORACLEADAPTER_INCLUDED

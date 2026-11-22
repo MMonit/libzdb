@@ -77,6 +77,7 @@ struct T {
         param_t     params;
         sword       lastError;
         ub4         rowsChanged;
+        OracleTransaction_T transaction;
         Connection_T delegator;
         char        erb[ORACLE_ERR_SIZE];
 };
@@ -86,10 +87,8 @@ extern const struct Rop_T oraclerops;
 /* --------------------------------------------------------- Private methods */
 
 
-/* Convenience macro for error messages */
 #define ERR(P) Oracle_getError((P)->lastError, (P)->err, NULL, (P)->erb, sizeof((P)->erb))
 
-/* Macro to throw SQLException with Oracle error code and message in one OCIErrorGet call */
 #define THROW_ORACLE_ERROR(P) do { \
         int _code; \
         const char *_msg = Oracle_getError((P)->lastError, (P)->err, &_code, (P)->erb, sizeof((P)->erb)); \
@@ -100,12 +99,13 @@ extern const struct Rop_T oraclerops;
 /* ------------------------------------------------------------- Constructor */
 
 
-T OraclePreparedStatement_new(Connection_T delegator, OCIStmt *stmt, OCIEnv *env, OCISession *usr, OCIError *err, OCISvcCtx *svc) {
+T OraclePreparedStatement_new(Connection_T delegator, OCIStmt *stmt, OCIEnv *env, OCISession *usr, OCIError *err, OCISvcCtx *svc, OracleTransaction_T transaction) {
         T P;
         assert(stmt);
         assert(env);
         assert(err);
         assert(svc);
+        assert(transaction);
         NEW(P);
         P->delegator = delegator;
         P->stmt = stmt;
@@ -113,9 +113,9 @@ T OraclePreparedStatement_new(Connection_T delegator, OCIStmt *stmt, OCIEnv *env
         P->err = err;
         P->svc = svc;
         P->usr = usr;
+        P->transaction = transaction;
         P->lastError = OCI_SUCCESS;
         P->rowsChanged = 0;
-        /* parameterCount */
         P->lastError = OCIAttrGet(P->stmt, OCI_HTYPE_STMT, &P->parameterCount, NULL, OCI_ATTR_BIND_COUNT, P->err);
         if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO)
                 P->parameterCount = 0;
@@ -229,9 +229,7 @@ static void _setDouble(T P, int parameterIndex, double x) {
 static void _setBlob(T P, int parameterIndex, const void *x, int size) {
         assert(P);
         int i = checkAndSetParameterIndex(parameterIndex, P->parameterCount);
-        // Only a NULL pointer binds SQL NULL: a non-NULL, zero-length value is
-        // stored as an empty blob, consistent with PreparedStatement_setString()
-        // and the other database drivers
+        // Only NULL binds SQL NULL. A zero-length value is an empty blob, as in the other drivers
         if (x == NULL) {
                 P->params[i].is_null = OCI_IND_NULL;
                 P->params[i].length = 0;
@@ -241,25 +239,20 @@ static void _setBlob(T P, int parameterIndex, const void *x, int size) {
                         THROW(SQLException, "%s", ERR(P));
                 return;
         }
-        // Allocate LOB locator if not already done
         if (P->params[i].lob_loc == NULL) {
                 P->lastError = OCIDescriptorAlloc(P->env, (void **)&P->params[i].lob_loc, OCI_DTYPE_LOB, 0, NULL);
                 if (P->lastError != OCI_SUCCESS)
                         THROW(SQLException, "Failed to allocate LOB descriptor");
         } else {
-                // Free existing temp LOB before reuse
                 boolean is_temp = FALSE;
                 if (OCILobIsTemporary(P->env, P->err, P->params[i].lob_loc, &is_temp) == OCI_SUCCESS && is_temp)
                         OCILobFreeTemporary(P->svc, P->err, P->params[i].lob_loc);
         }
-        // Create temporary BLOB
         P->lastError = OCILobCreateTemporary(P->svc, P->err, P->params[i].lob_loc,
                                              OCI_DEFAULT, OCI_DEFAULT, OCI_TEMP_BLOB,
                                              FALSE, OCI_DURATION_SESSION);
         if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO)
                 THROW(SQLException, "%s", ERR(P));
-        // Write data to the temporary LOB. A zero-length value skips the write
-        // and binds the freshly created, still empty temporary BLOB, as
         // OCILobWrite2() does not accept a zero amount
         if (size > 0) {
                 oraub8 amt = size;
@@ -268,7 +261,6 @@ static void _setBlob(T P, int parameterIndex, const void *x, int size) {
                 if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO)
                         THROW(SQLException, "%s", ERR(P));
         }
-        // Bind the LOB locator
         P->params[i].is_null = OCI_IND_NOTNULL;
         P->params[i].length = sizeof(OCILobLocator *);
         P->lastError = OCIBindByPos(P->stmt, &P->params[i].bind, P->err, parameterIndex,
@@ -282,7 +274,7 @@ static void _setBlob(T P, int parameterIndex, const void *x, int size) {
 static void _execute(T P) {
         assert(P);
         P->rowsChanged = 0;
-        P->lastError = OCIStmtExecute(P->svc, P->stmt, P->err, 1, 0, NULL, NULL, OCI_DEFAULT);
+        P->lastError = OCIStmtExecute(P->svc, P->stmt, P->err, 1, 0, NULL, NULL, P->transaction->active ? OCI_DEFAULT : OCI_COMMIT_ON_SUCCESS);
         if (P->lastError != OCI_SUCCESS && P->lastError != OCI_SUCCESS_WITH_INFO)
                 THROW_ORACLE_ERROR(P);
         P->lastError = OCIAttrGet(P->stmt, OCI_HTYPE_STMT, &P->rowsChanged, 0, OCI_ATTR_ROW_COUNT, P->err);
@@ -296,7 +288,7 @@ static ResultSet_T _executeQuery(T P) {
         P->rowsChanged = 0;
         P->lastError = OCIStmtExecute(P->svc, P->stmt, P->err, 0, 0, NULL, NULL, OCI_DEFAULT);
         if (P->lastError == OCI_SUCCESS || P->lastError == OCI_SUCCESS_WITH_INFO)
-                return ResultSet_new(OracleResultSet_new(P->delegator, P->stmt, P->env, P->usr, P->err, P->svc, false), (Rop_T)&oraclerops);
+                return ResultSet_new(OracleResultSet_new(P->delegator, P->stmt, P->env, P->usr, P->err, P->svc, false, P->transaction), (Rop_T)&oraclerops);
         THROW_ORACLE_ERROR(P);
         return NULL;
 }
