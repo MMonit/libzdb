@@ -44,8 +44,12 @@
  *
  * The following URL components are automatically unescaped according to the escaping
  * mechanism defined in RFC 2396; `credentials`, `path` and parameter
- * `values`. If you use a password with non-URL safe characters, you must URL
- * escape the value.
+ * `values`.
+ *
+ * Username and password in the authority part must not include URL-unsafe
+ * characters nor the following characters `/`, `?`, `#` or `@`. URL escape
+ * them. If not, as in `mysql://user:pa/ss@host/db`, the string is not a
+ * valid URL and URL_new() returns NULL. The username should not contain `:`.
  *
  * An <em>IPv6 address</em> can be used for host as defined in
  * <a href="https://www.ietf.org/rfc/rfc2732.txt">RFC2732</a> by enclosing the
@@ -210,6 +214,10 @@ const char *URL_getParameter(T U, const char *name);
 
 /**
  * @brief Returns a string representation of this URL object.
+ *
+ * The username, password and path are URL escaped, so the string is a
+ * URL that URL_new() reads back as this URL.
+ *
  * @param U A URL object
  * @return The URL string
  */

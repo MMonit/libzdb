@@ -117,7 +117,7 @@ static bool _parseURL(T U) {
          ws                       = [ \t\r\n];
          any		          = [\000-\377];
          protocol                 = [a-zA-Z0-9]+"://";
-         auth                     = ([\040-\377]\[@\]])+[@];
+         auth                     = ([\040-\377]\[@/?#\]])+[@];
          host                     = ([a-zA-Z0-9\-]+)([.]([a-zA-Z0-9\-]+))*;
          host6                    = '[' [0-9a-zA-Z.:%\-]+ ']';
          port                     = [:][0-9]+;
@@ -171,6 +171,8 @@ authority:
          }
          auth       
          {
+                if (U->user)
+                        return false; // A second username and password
                 *(U->yycursor - 1) = 0;
                 U->user = U->yytoken;
                 char *p = strchr(U->user, ':');
@@ -201,6 +203,10 @@ authority:
                         return false;
                 U->port = (int)p;
                 goto authority;
+         }
+         [:@]
+         {
+                return false; // A ':' that starts no port, or an '@' with no username before it
          }
          path       
          {
@@ -287,6 +293,31 @@ static inline uchar_t *_b2x(uchar_t b, uchar_t *x) {
         *x++ = _b2x_table[b >> 4];
         *x = _b2x_table[b & 0xf];
         return x;
+}
+
+
+static inline bool _mustEscape(uchar_t c, const char *also) {
+        return urlunsafe[c] || strchr(also, c);
+}
+
+
+static char *_escape(const char *url, const char *also) {
+        char *escaped = 0;
+        if (url) {
+                char *p;
+                int i, n;
+                for (n = i = 0; url[i]; i++)
+                        if (_mustEscape(url[i], also))
+                                n += 2;
+                p = escaped = ALLOC(i + n + 1);
+                for (; *url; url++, p++) {
+                        *p = *url;
+                        if (_mustEscape(*url, also))
+                                p = _b2x(*url, p);
+                }
+                *p = 0;
+        }
+        return escaped;
 }
 
 
@@ -423,19 +454,25 @@ const char *URL_toString(T U) {
                 char port[11] = {};
                 if (U->portStr) // port seen in URL
                         snprintf(port, 10, ":%d", U->port);
+                char *user = _escape(U->user, "/?@:+");
+                char *password = _escape(U->password, "/?@:+");
+                char *path = _escape(U->path, "?;+");
 		U->toString = Str_cat("%s://%s%s%s%s%s%s%s%s%s%s%s",
                                       U->protocol,
-                                      U->user ? U->user : "",
-                                      U->password ? ":" : "",
-                                      U->password ? U->password : "",
-                                      U->user ? "@" : "",
+                                      user ? user : "",
+                                      password ? ":" : "",
+                                      password ? password : "",
+                                      user ? "@" : "",
                                       U->ip6 ? "[" : "",
                                       U->host ? U->host : "",
                                       U->ip6 ? "]" : "",
                                       port,
-                                      U->path ? U->path : "",
+                                      path ? path : "",
                                       U->query ? "?" : "",
                                       U->query ? U->query : ""); 
+                FREE(user);
+                FREE(password);
+                FREE(path);
 	}
 	return U->toString;
 }
@@ -464,20 +501,6 @@ char *URL_unescape(char *url) {
 
 
 char *URL_escape(const char *url) {
-        char *escaped = 0;
-        if (url) {
-                char *p;
-                int i, n;
-                for (n = i = 0; url[i]; i++) 
-                        if (urlunsafe[(unsigned char)(url[i])]) 
-                                n += 2;
-                p = escaped = ALLOC(i + n + 1);
-                for (; *url; url++, p++) {
-                        if (urlunsafe[(unsigned char)(*p = *url)])
-                                p = _b2x(*url, p);
-                }
-                *p = 0;
-        }
-        return escaped;
+        return _escape(url, "");
 }
 

@@ -25,6 +25,10 @@ static void abortHandler(const char *error) {
         abortHandlerCalled = 1;
 }
 
+static bool isSame(const char *a, const char *b) {
+        return a && b ? Str_isByteEqual(a, b) : a == b;
+}
+
 
 static void testStr(void) {
         printf("============> Start Str Tests\n\n");
@@ -628,7 +632,7 @@ static void testURL(void) {
                 assert(IS(URL_getParameter(url, "user"), "r&ot"));
                 assert(IS(URL_getParameter(url, "password"), "pass=word"));
                 // Assert that IP6 brackets are put back in toString
-                assert(IS(URL_toString(url), "mysql://r@ot:p@ssword@[2001:db8:85a3::8a2e:370:7334]:3306/test?user=r%26ot&password=pass%3Dword"));
+                assert(IS(URL_toString(url), "mysql://r%40ot:p%40ssword@[2001:db8:85a3::8a2e:370:7334]:3306/test?user=r%26ot&password=pass%3Dword"));
                 URL_free(&url);
                 // IPv6 localhost
                 url = URL_new("mysql://[fe80::1%lo0]/");
@@ -640,6 +644,123 @@ static void testURL(void) {
                 URL_free(&url);
         }
         printf("=> Test12: OK\n\n");
+
+        printf("=> Test13: the authority ends at the first '/', '?' or '#'\n");
+        {
+                static const struct {
+                        const char *url, *user, *password, *host;
+                        int port;
+                        const char *path, *query;
+                } parts[] = {
+                        // An '@' after the host does not end a username and password
+                        {"mysql://localhost:3306/test?user=root&password=p@ss", NULL, NULL, "localhost", 3306, "/test", "user=root&password=p@ss"},
+                        {"postgresql://db.example.com/test?user=admin@db&password=swordfish", NULL, NULL, "db.example.com", 5432, "/test", "user=admin@db&password=swordfish"},
+                        {"postgresql://root:swordfish@localhost:5432/test?application-name=a@b", "root", "swordfish", "localhost", 5432, "/test", "application-name=a@b"},
+                        {"mysql://[::1]:3306/test?user=root&password=p@ss", NULL, NULL, "::1", 3306, "/test", "user=root&password=p@ss"},
+                        {"sqlite:///var/sqlite/test.db?key=a@b", NULL, NULL, NULL, -1, "/var/sqlite/test.db", "key=a@b"},
+                        // A username and password before the host are read as before
+                        {"mysql://root:pa%2Fss%3F%23%40@localhost/test", "root", "pa/ss?#@", "localhost", 3306, "/test", NULL},
+                        {"mysql://root:pa:ss@localhost/test", "root", "pa:ss", "localhost", 3306, "/test", NULL},
+                        {"mysql://root@localhost/test", "root", NULL, "localhost", 3306, "/test", NULL},
+                        {"oracle://scott:tiger@localhost:1521/servicename?sysdba=true", "scott", "tiger", "localhost", 1521, "/servicename", "sysdba=true"},
+                };
+                for (size_t i = 0; i < sizeof(parts) / sizeof(parts[0]); i++) {
+                        printf("\t%s\n", parts[i].url);
+                        url = URL_new(parts[i].url);
+                        assert(url);
+                        assert(isSame(URL_getUser(url), parts[i].user));
+                        assert(isSame(URL_getPassword(url), parts[i].password));
+                        assert(isSame(URL_getHost(url), parts[i].host));
+                        assert(URL_getPort(url) == parts[i].port);
+                        assert(isSame(URL_getPath(url), parts[i].path));
+                        assert(isSame(URL_getQueryString(url), parts[i].query));
+                        URL_free(&url);
+                }
+                url = URL_new("postgresql://db.example.com/test?user=admin@db&password=swordfish");
+                assert(IS(URL_getParameter(url, "user"), "admin@db"));
+                URL_free(&url);
+                // A ':' after the host that starts no port number, a second
+                // username and password, and an '@' with no username before it
+                static const char *refused[] = {
+                        "mysql://root:pa/ss@localhost/test",
+                        "mysql://root:pa?ss@localhost/test",
+                        "mysql://root:pa#ss@localhost/test",
+                        "mysql://localhost:abc/test",
+                        "mysql://root:p@ss@localhost/test",
+                        "mysql://root:p@ss:word@localhost/test",
+                        "mysql://root:swordfish@@localhost/test",
+                };
+                for (size_t i = 0; i < sizeof(refused) / sizeof(refused[0]); i++) {
+                        printf("\t%s: refused\n", refused[i]);
+                        assert(! URL_new(refused[i]));
+                }
+        }
+        printf("=> Test13: OK\n\n");
+
+        printf("=> Test14: toString is read back as the same URL\n");
+        {
+                static const struct { const char *url, *string; } strings[] = {
+                        {"mysql://root:swordfish@localhost:3306/test?user=r%26ot", "mysql://root:swordfish@localhost:3306/test?user=r%26ot"},
+                        {"mysql://root:p%40ss@localhost/test", "mysql://root:p%40ss@localhost/test"},
+                        {"mysql://root:pa%2fss%3f%23@localhost/test", "mysql://root:pa%2Fss%3F%23@localhost/test"},
+                        {"mysql://r%3Aot:pa%2Bss@[::1]:3306/test", "mysql://r%3Aot:pa%2Bss@[::1]:3306/test"},
+                        {"mysql://root:pa+ss@localhost/test", "mysql://root:pa%20ss@localhost/test"},
+                        {"mysql://root:100%25@localhost/test", "mysql://root:100%25@localhost/test"},
+                        {"sqlite:///var/my%20db/a%3Bb%3F.db?synchronous=normal", "sqlite:///var/my%20db/a%3Bb%3F.db?synchronous=normal"},
+                };
+                for (size_t i = 0; i < sizeof(strings) / sizeof(strings[0]); i++) {
+                        url = URL_new(strings[i].url);
+                        assert(url);
+                        printf("\t%s -> %s\n", strings[i].url, URL_toString(url));
+                        assert(Str_isByteEqual(URL_toString(url), strings[i].string));
+                        URL_T copy = URL_new(URL_toString(url));
+                        assert(copy);
+                        assert(isSame(URL_getUser(copy), URL_getUser(url)));
+                        assert(isSame(URL_getPassword(copy), URL_getPassword(url)));
+                        assert(isSame(URL_getHost(copy), URL_getHost(url)));
+                        assert(URL_getPort(copy) == URL_getPort(url));
+                        assert(isSame(URL_getPath(copy), URL_getPath(url)));
+                        assert(isSame(URL_getQueryString(copy), URL_getQueryString(url)));
+                        assert(Str_isByteEqual(URL_toString(copy), URL_toString(url)));
+                        URL_free(&copy);
+                        URL_free(&url);
+                }
+                // Every string over 10 characters up to length 4, as the
+                // username, the password and the path
+                const char alphabet[] = "a@/:%+ #?;";
+                int n = 0;
+                for (int len = 1; len <= 4; len++) {
+                        int combos = 1;
+                        for (int k = 0; k < len; k++)
+                                combos *= 10;
+                        for (int m = 0; m < combos; m++) {
+                                char raw[5], escaped[13];
+                                int v = m;
+                                for (int k = 0; k < len; k++) {
+                                        raw[k] = alphabet[v % 10];
+                                        v /= 10;
+                                        snprintf(escaped + 3 * k, 4, "%%%02X", (unsigned char)raw[k]);
+                                }
+                                raw[len] = 0;
+                                url = URL_create("mysql://%s:%s@localhost/%s", escaped, escaped, escaped);
+                                assert(url);
+                                assert(Str_isByteEqual(URL_getUser(url), raw));
+                                assert(Str_isByteEqual(URL_getPassword(url), raw));
+                                assert(Str_isByteEqual(URL_getPath(url) + 1, raw));
+                                URL_T copy = URL_new(URL_toString(url));
+                                assert(copy);
+                                assert(Str_isByteEqual(URL_getUser(copy), raw));
+                                assert(Str_isByteEqual(URL_getPassword(copy), raw));
+                                assert(Str_isByteEqual(URL_getPath(copy) + 1, raw));
+                                URL_free(&copy);
+                                URL_free(&url);
+                                n++;
+                        }
+                }
+                assert(n == 11110);
+                printf("\t%d strings read back: OK\n", n);
+        }
+        printf("=> Test14: OK\n\n");
 
         printf("============> URL Tests: OK\n\n");
 }
